@@ -1,0 +1,9 @@
+node_modules/
+.env*
+*.apk
+*.p12
+*.keystore
+*.jks
+family-photo.*
+password.txt
+private/

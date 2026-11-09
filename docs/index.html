@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com; frame-src 'none'; form-action 'none'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="only light" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="description" content="Ghi chép thu chi gia đình nhanh, miễn phí và đồng bộ Google Sheets." />
+  <title>Chi Tiêu Gia Đình</title>
+  
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preload" href="be-vietnam-400.ttf" as="font" type="font/ttf" crossorigin />
+  <link rel="stylesheet" href="redesign.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <link rel="stylesheet" href="soft-theme.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <img class="family-avatar" src="favicon.svg" alt="Chi tiêu gia đình" />
+      <div>
+        <h1>Chi tiêu gia đình</h1>
+      </div>
+      <button class="icon-btn" id="assistantBtn" aria-label="Trợ lý tài chính"><span></span></button>
+    </header>
+
+    <main>
+      <section class="view active" id="homeView">
+        <div class="month-row">
+          <button class="month-btn" id="prevMonth" aria-label="Tháng trước">‹</button>
+          <button class="month-label" id="monthLabel"></button>
+          <button class="month-btn" id="nextMonth" aria-label="Tháng sau">›</button>
+        </div>
+
+
+        <article class="balance-card">
+          <div class="balance-head">
+            <span>Đã chi tháng này</span>
+            <button type="button" class="sync-pill" id="syncPill" aria-label="Trạng thái đồng bộ, bấm để thử lại"><i></i><b>Chưa kết nối</b></button>
+          </div>
+          <p class="hero-amount" id="expenseTotal">0 ₫</p>
+          <div class="balance-grid">
+            <div><span>Thu nhập</span><strong id="incomeTotal">0 ₫</strong></div>
+            <div><span>Còn lại</span><strong id="remainingTotal">0 ₫</strong></div>
+            <div><span>Tỷ lệ tiết kiệm</span><strong id="savingRate">0%</strong></div>
+          </div>
+          <div class="budget-gauge" id="budgetGauge" role="img" aria-label="Ngân sách tháng chưa được đặt">
+            <svg viewBox="0 0 260 156" aria-hidden="true" focusable="false">
+              <path class="budget-gauge-track" d="M 22 132 A 108 108 0 0 1 238 132" pathLength="100" />
+              <path class="budget-gauge-fill" id="budgetGaugeArc" d="M 22 132 A 108 108 0 0 1 238 132" pathLength="100" stroke-dasharray="0 100" />
+              <text class="budget-gauge-value" id="budgetGaugeValue" x="130" y="109" text-anchor="middle">—</text>
+              <text class="budget-gauge-label" x="130" y="134" text-anchor="middle">ngân sách đã dùng</text>
+            </svg>
+            <div class="budget-gauge-scale"><span>0</span><span id="budgetGaugeLimit">Chưa đặt ngân sách</span></div>
+          </div>
+          <p id="debtSummary" class="budget-caption"></p><small id="lastSyncTime"></small>
+          <p class="budget-caption" id="budgetCaption">Đặt ngân sách để theo dõi giới hạn tháng</p>
+        </article>
+
+
+
+
+
+        <section class="panel category-panel">
+          <div class="section-head"><div><p class="eyebrow dark">CHI TIÊU</p><h2>Chi tiêu</h2></div></div>
+          <div class="expense-composition"><aside class="expense-pie-panel" aria-label="Tỷ trọng chi phí"><div class="pie-and-colors"><div id="expensePie" class="expense-pie" role="img"></div><div id="expenseColorLegend" aria-label="Chú giải danh mục"></div></div></aside><div class="expense-legend-panel"><div class="section-head"><h2>So với Ngân sách</h2></div><div id="expensePieLegend" aria-label="Danh mục và tỷ lệ sử dụng ngân sách"></div></div><p id="expensePieNote"></p></div>
+          <div class="empty-state" id="categoryEmpty">
+            <div class="empty-icon">⌁</div><b>Chưa có khoản chi</b><span>Bắt đầu với giao dịch đầu tiên của tháng.</span>
+          </div>
+        </section>
+
+
+      </section>
+
+      <section class="view" id="dashboardView" aria-label="Dashboard thu chi">
+        <div class="dash-heading"><div><button class="text-btn" data-nav="home">‹ Tổng quan</button><h2>Dashboard</h2></div><div class="dash-filters"><label>Tháng xem<input id="dashboardMonth" type="text" inputmode="text" placeholder="MM/YYYY" pattern="(0[1-9]|1[0-2])/[0-9]{4}" maxlength="7" aria-label="Tháng xem, MM/YYYY" /></label><label>Lũy kế<select id="dashboardMonths"><option value="1">1 tháng</option><option value="2">2 tháng</option><option value="3">3 tháng</option><option value="4">4 tháng</option><option value="5">5 tháng</option><option value="6" selected>6 tháng</option><option value="7">7 tháng</option><option value="8">8 tháng</option><option value="9">9 tháng</option><option value="10">10 tháng</option><option value="11">11 tháng</option><option value="12">12 tháng</option></select></label></div></div>
+        <p class="dash-note" id="dashboardScope"></p>
+        <div class="cumulative-cards"><article><h3>Thu nhập lũy kế</h3><strong id="cumulativeIncome">—</strong></article><article><h3>Chi tiêu lũy kế</h3><strong id="cumulativeExpense">—</strong></article></div>
+        <article class="accumulated-savings" aria-labelledby="accumulatedSavingsTitle">
+          <h3 id="accumulatedSavingsTitle">Tiết kiệm tích lũy</h3>
+          <strong class="accumulated-savings-value" id="accumulatedSavingsValue">—</strong>
+        </article>
+        <div class="dash-grid">
+          <section class="dash-card dash-wide"><div class="dash-card-head"><h3 id="dashboardTrendTitle">Thu – chi 6 tháng</h3><span>Đơn vị: triệu đồng</span></div><div class="dash-legend"><span><i class="expense-dot"></i>Chi tiêu</span><span><i class="income-dot"></i>Thu nhập</span><span><i class="average-key"></i><b id="dashboardAverageLabel"></b></span></div><div class="dash-trend-scroll"><div id="dashboardTrend" class="dash-trend"></div></div><p class="dash-chart-hint">Bấm cột chi để xem danh mục của tháng.</p><div id="dashboardCategoryDetail" hidden><div class="dash-card-head"><h3 id="dashboardCategoriesTitle"></h3><button class="text-btn" id="closeDashboardCategories" aria-label="Đóng chi tiết danh mục">Đóng</button></div><div id="dashboardCategories"></div></div></section>
+          <section class="dash-card dash-wide" aria-labelledby="weeklyTitle">
+            <div class="dash-card-head"><h3 id="weeklyTitle">Chi tiêu theo tuần</h3></div>
+            <p id="weeklyMean"></p><p class="loan-note">Cột: tổng chi đã ghi từ thứ Hai đến Chủ nhật. Nét đứt: bình quân các tuần đủ 7 ngày kể từ giao dịch đầu tiên, kể cả tuần không chi. Tuần đầu và cuối chỉ tính ngày trong kỳ, đến hôm nay.</p>
+            <div class="dash-trend-scroll" tabindex="0" role="region" aria-label="Chi tiêu theo tuần"><div id="weeklyBars"></div></div>
+          </section>
+          <section class="dash-card dash-wide loan-card" aria-labelledby="loanScheduleTitle">
+            <div class="dash-card-head"><h3 id="loanScheduleTitle">Lãi vay hàng tháng</h3><span>10/2026 – 12/2030</span></div>
+            <p class="loan-note">Gốc: dư nợ tính lãi · Số tiền: VND · Lãi suất: %/năm</p>
+
+            <div class="loan-table-scroll" tabindex="0" role="region" aria-label="Lịch lãi vay từ tháng 10 năm 2026 đến hết năm 2030">
+              <table class="loan-table"><thead><tr><th scope="col">Ngân hàng</th><th scope="col">Tháng</th><th scope="col">Gốc</th><th scope="col">Lãi suất</th><th scope="col">Tiền phải trả</th></tr></thead><tbody id="loanScheduleBody"></tbody></table>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="historyView">
+        <div class="page-heading history-heading"><div><p class="eyebrow dark">SỔ GIAO DỊCH</p><h2>Lịch sử</h2></div><button class="sync-btn" id="syncNowBtn" aria-label="Đồng bộ với Google Sheets">↻ <span>Đồng bộ</span></button></div>
+        <div class="filter-row">
+          <button class="filter active" data-filter="All">Tất cả</button>
+          <button class="filter" data-filter="Expense">Khoản chi</button>
+          <button class="filter" data-filter="Income">Thu nhập</button>
+        </div>
+        <input id="historySearch" type="search" aria-label="Tìm giao dịch" placeholder="Tìm ghi chú, danh mục, người, ngày, số tiền…" />
+        <p id="historyMatches" role="status" hidden></p>
+        <div id="historyList" class="transaction-list full-list"></div>
+        <div class="empty-state" id="historyEmpty"><div class="empty-icon">⌁</div><b>Chưa có giao dịch</b><span>Khoản thu chi sẽ xuất hiện tại đây.</span></div>
+      </section>
+
+      <section class="view" id="budgetView">
+        <div class="page-heading"><p class="eyebrow dark">KẾ HOẠCH THÁNG</p><h2>Ngân sách</h2><p>Đặt giới hạn phù hợp với gia đình bạn. Dùng chung cho gia đình qua Google Sheets.</p></div>
+        <p id="budgetMonthLabel"></p><p id="budgetSyncStatus" role="status"></p><div id="budgetConflict" hidden><p>Ngân sách đã được sửa ở nơi khác.</p><button id="useRemoteBudget">Dùng bản trên Sheets</button><button id="useLocalBudget">Ghi bản trên máy lên Sheets</button></div><div id="budgetEditor" class="budget-editor"></div>
+        <button class="save-budget" id="saveBudgetBtn">Lưu ngân sách</button>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Điều hướng chính">
+      <button class="nav-add" data-open-entry="Expense" aria-label="Thêm khoản chi hoặc thu nhập" aria-haspopup="dialog">+</button>
+      <button class="nav-item active" data-nav="home"><span>⌂</span><b>Tổng quan</b></button>
+      <button class="nav-item" data-nav="history"><span>☷</span><b>Lịch sử</b></button>
+      <button class="nav-item" data-nav="dashboard"><span></span><b>Dashboard</b></button>
+      <button class="nav-item" data-nav="budget"><span>◒</span><b>Ngân sách</b></button>
+      <button class="nav-item" id="settingsBtn" aria-label="Cài đặt đồng bộ"><span></span><b>Cài đặt</b></button>
+    </nav>
+  </div>
+
+  <div class="overlay" id="entryOverlay" aria-hidden="true">
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="entryTitle">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head"><div><p class="eyebrow dark" id="entryEyebrow">GHI NHANH</p><h2 id="entryTitle">Thêm khoản chi</h2></div><button class="close-btn" data-close="entry" aria-label="Đóng">×</button></div>
+      <form id="entryForm"><div id="repeatChoices" class="filter-row" aria-label="Khoản chi gần đây"></div>
+        <div class="type-switch"><button type="button" class="active" data-type="Expense">Khoản chi</button><button type="button" data-type="Income">Thu nhập</button></div>
+        <label class="amount-field"><span>Số tiền</span><div><input id="amountInput" inputmode="numeric" autocomplete="off" placeholder="0" required /><b>₫</b></div></label>
+        <div class="field-block"><label>Danh mục</label><div id="categoryPicker" class="category-picker"></div></div>
+        <div class="field-row">
+          <label><span>Người nhập</span><select id="personInput"><option>Vợ</option><option>Chồng</option><option>Gia đình</option></select></label>
+          <label><span>Ngày</span><input id="dateInput" type="date" required /></label>
+        </div>
+        <label class="note-field"><span>Ghi chú <em>không bắt buộc</em></span><input id="noteInput" placeholder="Ví dụ: WinMart" maxlength="80" /></label>
+        <button class="submit-entry" id="submitEntry" type="submit">Lưu khoản chi</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="overlay" id="settingsOverlay" aria-hidden="true">
+    <section class="sheet settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head"><div><p class="eyebrow dark">ĐỒNG BỘ MIỄN PHÍ</p><h2 id="settingsTitle">Kết nối Google Sheets</h2></div><button class="close-btn" data-close="settings" aria-label="Đóng">×</button></div>
+      <p class="privacy-note">Hai điện thoại dùng cùng URL và mã kết nối gia đình. Không cần tài khoản ChatGPT.</p>
+      <label class="endpoint-field"><span>Google Apps Script URL</span><input id="endpointInput" type="url" placeholder="https://script.google.com/macros/s/.../exec" /></label>
+      <label class="endpoint-field"><span>Mã kết nối gia đình</span><input id="familyTokenInput" type="password" autocomplete="off" placeholder="Mã FAMILY_ACCESS_TOKEN đã đặt trên Apps Script" /></label>
+      <label class="privacy-note"><input id="rememberConnection" type="checkbox" /> Ghi nhớ mã kết nối trên thiết bị riêng này</label>
+      <p class="privacy-note">Mã chỉ lưu trong trình duyệt, không có trong GitHub. Không bật ghi nhớ trên máy dùng chung. Cần triển khai apps-script/Code.gs trong repository trước khi kết nối.</p>
+      <button class="submit-entry" id="saveEndpointBtn">Lưu kết nối</button>
+      <p class="privacy-note">Google Sheets lưu giao dịch và ngân sách dùng chung. App tự tải lại khi được mở; bạn cũng có thể bấm “Đồng bộ” trong Lịch sử. Xóa ở một nơi sẽ được phản ánh ở nơi còn lại.</p>
+      <button class="sync-btn" id="installAppBtn" type="button">Cài app / Thêm vào màn hình chính</button>
+      <button class="danger-link" id="disconnectBtn" type="button">Đăng xuất và xóa bản lưu trên máy</button>
+      <button class="danger-link" id="clearDataBtn">Xóa dữ liệu trên thiết bị này</button>
+    </section>
+  </div>
+
+  <div class="overlay" id="assistantOverlay" aria-hidden="true">
+    <section class="sheet assistant-sheet" role="dialog" aria-modal="true" aria-labelledby="assistantTitle">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head"><h2 id="assistantTitle">Trợ lý</h2><button class="close-btn" data-close="assistant" aria-label="Đóng">×</button></div>
+      <div class="chat-log" id="chatLog" role="log" aria-live="polite"><div class="chat-bubble ai">Xin chào, bạn muốn hỏi gì về tình hình chi tiêu của gia đình?</div></div>
+      <div class="assistant-prompts" aria-label="Gợi ý câu hỏi">
+        <button data-ai-question="Phân tích chi tiêu trong tháng đang xem: tiền tập trung vào đâu, khoản nào bất thường và có thể tiết giảm?">Phân tích</button>
+        <button data-ai-question="Dựa trên lịch sử thu chi thực tế, dự báo chi tiêu tháng tới. Nêu rõ cách ước tính, giả định và mức độ chắc chắn; tách riêng khoản trả nợ dự kiến để tránh cộng trùng.">Dự báo</button>
+        <button data-ai-question="Tóm tắt tổng quan tài chính gia đình trong tháng đang xem: thu nhập, chi tiêu, còn lại và so sánh với tháng trước.">Tổng quan</button>
+      </div>
+      <div class="assistant-composer"><textarea id="assistantQuestion" rows="2" aria-label="Câu hỏi cho trợ lý" placeholder="Hỏi về thu chi của gia đình…"></textarea><button id="askAssistantBtn" aria-label="Gửi câu hỏi">↑</button></div>
+
+    </section>
+  </div>
+
+  <div class="overlay" id="categoryDetailOverlay" aria-hidden="true">
+    <section class="sheet category-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="categoryDetailTitle" aria-describedby="categoryDetailScope">
+      <div class="sheet-head"><div><p class="eyebrow dark">CHI TIẾT KHOẢN CHI</p><h2 id="categoryDetailTitle"></h2></div><button class="close-btn" id="closeCategoryDetail" aria-label="Đóng chi tiết">×</button></div>
+      <p id="categoryDetailScope" class="detail-scope"></p>
+      <div class="detail-total"><span>Tổng chi danh mục</span><strong id="categoryDetailTotal"></strong></div>
+      <div class="detail-scroll" id="categoryDetailScroll" tabindex="0" role="region" aria-label="Bảng giao dịch trong tháng">
+        <table id="categoryDetailTable" class="detail-table"><thead><tr><th scope="col">Ngày</th><th scope="col">Nội dung / Người chi</th><th scope="col" class="detail-money">Số tiền</th></tr></thead><tbody id="categoryDetailBody"></tbody></table>
+        <p id="categoryDetailEmpty" hidden>Không có khoản chi trong danh mục này ở tháng đang xem.</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="overlay" id="transactionDetailOverlay" aria-hidden="true">
+    <section class="sheet transaction-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="transactionDetailTitle">
+      <div class="sheet-head"><h2 id="transactionDetailTitle">Chi tiết giao dịch</h2><button class="close-btn" id="closeTransactionDetail" aria-label="Đóng chi tiết giao dịch">×</button></div>
+      <div id="transactionDetailContent"></div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="web-bridge.js"></script>
+  <script src="loans-data.js"></script>
+  <script src="dashboard.js"></script>
+  <script src="app.js"></script>
+  <script src="ui-icons.js"></script>
+  <script src="pwa.js"></script>
+</body>
+</html>
