@@ -1,0 +1,1 @@
+docs: specify Family Finance 3.0 target architecture
