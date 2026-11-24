@@ -1,26 +1,10 @@
-function trackedBanks(month){return month<'2026-11'?['Shinhan','Techcombank']:['Shinhan'];}
-function loanScheduleRows(schedule){
-  const indexed=new Map(schedule.records.map(r=>[r.bank+'|'+r.month,r]));
-  const rows=[];
-  for(let year=2026;year<=2030;year++)for(let month=1;month<=12;month++){
-    const key=year+'-'+String(month).padStart(2,'0');if(key<schedule.start||key>schedule.end)continue;
-    for(const bank of trackedBanks(key))rows.push(indexed.get(bank+'|'+key)||{bank,month:key,missing:true});
-  }
-  return rows;
-}
+// Loan rules: docs/src/domain/loan.js (legacy behaviour preserved, see tests/parity.test.cjs).
+function trackedBanks(month){return FFDomain.loan.trackedBanks(month)}
+function loanScheduleRows(schedule){return FFDomain.loan.loanScheduleRows(schedule)}
 const LOAN_RATE_KEY='family_finance_loan_rates_v1';
-function readLoanRates(){
-  try{const saved=JSON.parse(localStorage.getItem('ffpages:'+LOAN_RATE_KEY)||'{}');return {forecast:Number.isFinite(saved.forecast)&&saved.forecast>=0&&saved.forecast<=100?saved.forecast:12,actual:saved.actual&&typeof saved.actual==='object'?saved.actual:{}}}catch{return {forecast:12,actual:{}}}
-}
+function readLoanRates(){try{return FFDomain.loan.normalizeRates(JSON.parse(localStorage.getItem('ffpages:'+LOAN_RATE_KEY)||'{}'))}catch{return FFDomain.loan.normalizeRates(null)}}
 let loanRates=readLoanRates();
-function calculateLoanPayment(row,settings){
-  if(row.missing)return row;
-  if(row.bank!=='Techcombank'||row.month<'2026-12')return {...row,payment:row.interest,rateType:'Theo file'};
-  const actual=settings.actual[row.month],hasActual=typeof actual==='number'&&Number.isFinite(actual)&&actual>=0&&actual<=100;
-  const rate=(hasActual?actual:settings.forecast)/100;
-  const interest=row.principal*rate*row.days/365;
-  return {...row,rate,interest,principalPayment:909400,payment:interest+909400,rateType:hasActual?'Thực tế':'Dự đoán'};
-}
+function calculateLoanPayment(row,settings){return FFDomain.loan.calculateLoanPayment(row,settings)}
 function loanPaymentMarkup(r){
   return `${money(r.payment)}${r.bank==='Techcombank'&&r.month>='2026-12'?`<small>Lãi ${money(r.interest)} + gốc ${money(r.principalPayment)}</small>`:''}`;
 }
@@ -33,14 +17,7 @@ function renderLoanSchedule(){
     return `<tr class="${r.missing?'loan-missing':''}"><th scope="row">${escapeHtml(r.bank)}${r.missing?'<small>Chưa có dữ liệu</small>':''}</th><td>${r.month.slice(5)}/${r.month.slice(0,4)}</td><td>${r.missing?'—':money(r.principal)}</td><td>${rateCell}</td><td class="loan-payment">${r.missing?'—':loanPaymentMarkup(r)}</td></tr>`;
   }).join('');
 }
-function weeklySpending(rows,start,end,today){
-  const day=86400000,first=Date.parse(start+'-01T00:00:00Z'),[y,m]=end.split('-').map(Number);
-  const last=Math.min(Date.UTC(y,m,0),Date.parse(today+'T00:00:00Z')),iso=t=>new Date(t).toISOString().slice(0,10);
-  const monday=t=>t-((new Date(t).getUTCDay()+6)%7)*day, buckets=new Map();
-  if(last>=first)for(let t=monday(first);t<=last;t+=7*day)buckets.set(t,{start:iso(Math.max(first,t)),end:iso(Math.min(last,t+6*day)),total:0});
-  for(const r of rows){if(r.type!=='Expense')continue;const t=Date.parse(r.date+'T00:00:00Z');if(t>=first&&t<=last)buckets.get(monday(t)).total+=Number(r.amount)||0;}
-  return [...buckets.values()];
-}
+function weeklySpending(rows,start,end,today){return FFDomain.cashflow.weeklySpending(rows,start,end,today)}
 function renderWeekly(d){
   const weeks=weeklySpending(transactions,d.start,d.end,dateISO()),max=Math.max(1,...weeks.map(w=>w.total));
   const first=transactions.map(r=>r.date).filter(Boolean).sort()[0], full=weeks.filter(w=>first&&w.start>=first&&w.end<dateISO()&&Date.parse(w.end)-Date.parse(w.start)===6*86400000);
@@ -49,17 +26,7 @@ function renderWeekly(d){
   const label=s=>s.slice(5).split('-').reverse().join('/');
   $('#weeklyBars').innerHTML=weeks.map(w=>`<div class="week-bar" aria-label="${w.start} – ${w.end}: ${money(w.total)}"><b>${moneyMillions(w.total)}</b><div class="week-track"><i style="height:${100*w.total/max}%"></i><em style="display:${full.length?'block':'none'};bottom:${100*avg/max}%"></em></div><small>${label(w.start)}–${label(w.end)}</small></div>`).join('');
 }
-function accumulatedSavings(rows,today){
-  const start='2026-08-26';
-  const valid=rows.filter(r=>/^\d{4}-\d{2}-\d{2}$/.test(String(r.date))&&String(r.date)>=start);
-  const incomeRows=valid.filter(r=>r.type==='Income');
-  const incomeDates=incomeRows.map(r=>String(r.date)).sort();
-  const end=incomeDates.length?incomeDates[incomeDates.length-1]:null;
-  const sum=list=>list.reduce((total,r)=>total+(Number(r.amount)||0),0);
-  const income=sum(incomeRows);
-  const expense=sum(valid.filter(r=>r.type==='Expense'&&String(r.date)<=today));
-  return {start,end,expenseEnd:today,income,expense,savings:end?income-expense:null};
-}
+function accumulatedSavings(rows,today){return FFDomain.cashflow.accumulatedSavings(rows,today)}
 function renderAccumulatedSavings(){
   const d=accumulatedSavings(transactions,dateISO());
   $('#cumulativeIncome').textContent=money(d.income);
@@ -75,21 +42,7 @@ function parseDashboardMonth(value){
   const match=/^(0[1-9]|1[0-2])\/(\d{4})$/.exec(String(value).trim());
   return match&&Number(match[2])>=1900?match[2]+'-'+match[1]:null;
 }
-function dashboardData(rows,month,months=6){
-  const count=Math.max(1,Math.min(12,Math.trunc(Number(months)||1)));
-  const [year,number]=month.split('-').map(Number);
-  const key=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  const start=key(new Date(year,number-count,1));
-  const selected=rows.filter(r=>String(r.date).slice(0,7)>=start&&String(r.date).slice(0,7)<=month);
-  const expenses=selected.filter(r=>r.type==='Expense');
-  const sum=list=>list.reduce((s,r)=>s+Number(r.amount||0),0);
-  const categories=Object.entries(expenses.reduce((acc,r)=>{acc[r.category||'other']=(acc[r.category||'other']||0)+Number(r.amount||0);return acc},{})).sort((a,b)=>b[1]-a[1]);
-  const trend=Array.from({length:count},(_,i)=>{
-    const m=key(new Date(year,number-count+i,1)),rs=selected.filter(r=>String(r.date).slice(0,7)===m);
-    return {month:m,expense:sum(rs.filter(r=>r.type==='Expense')),income:sum(rs.filter(r=>r.type==='Income')),count:rs.length};
-  });
-  return {start,end:month,months:count,averageExpense:sum(expenses)/count,expense:sum(expenses),categories,trend};
-}
+function dashboardData(rows,month,months=6){return FFDomain.cashflow.dashboardData(rows,month,months)}
 function renderDashboard(){
   renderAccumulatedSavings();
   renderLoanSchedule();

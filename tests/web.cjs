@@ -17,4 +17,14 @@ for(const file of fs.readdirSync(docs)){assert(!/family-photo|\.apk$|\.p12$|pass
 for(const m of html.matchAll(/(?:src|href)="([^"#]+)"/g)){const ref=m[1];if(!ref.includes('://'))assert(fs.existsSync(path.join(docs,ref)),ref);}
 const manifest=JSON.parse(read('manifest.webmanifest'));assert.equal(manifest.start_url,'./');assert.equal(manifest.scope,'./');
 const sw=read('sw.js');assert(sw.includes("event.request.method!=='GET'"));assert(sw.includes('!urls.has(event.request.url)'));
-ctx.nativeRequest({action:'snapshot'}).then(()=>console.log('PASS privacy, asset paths, manifest, session-only default, HTTPS endpoint validation, authenticated POST, cache boundary')).catch(e=>{console.error(e);process.exitCode=1});
+// 3.0: service-worker allowlist == every local asset referenced by the page, CSS and manifest; nothing else.
+const swFiles=vm.runInNewContext(sw.match(/const FILES=(\[[\s\S]*?\]);/)[1]);
+const needed=new Set(['./','index.html']);for(const m of html.matchAll(/(?:src|href)="([^"#]+)"/g))if(!m[1].includes('://'))needed.add(m[1]);
+for(const f of fs.readdirSync(docs).filter(f=>f.endsWith('.css')))for(const m of read(f).matchAll(/url\("?([^")]+)"?\)/g))if(!m[1].startsWith('data:'))needed.add(m[1]);
+for(const i of manifest.icons)needed.add(i.src);
+assert.deepEqual([...swFiles].sort(),[...needed].sort(),'sw.js FILES must match referenced assets');
+for(const f of swFiles)if(f!=='./')assert(fs.existsSync(path.join(docs,f)),f);
+assert(!/script\.google|exec|api\.deepseek/.test(swFiles.join(' ')),'no API URLs cached');
+// 3.0: scan nested source folders for secrets/private markers too.
+(function walk(dir){for(const e of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isDirectory())walk(p);else if(/\.(js|html|css|json)$/.test(e.name)){const s=fs.readFileSync(p,'utf8');assert(!/AKfy[a-zA-Z0-9_-]{20,}|sk-[a-zA-Z0-9]{20,}|lethuyan|hainguyendl93/.test(s),p);}}})(path.join(docs,'src'));
+ctx.nativeRequest({action:'snapshot'}).then(()=>console.log('PASS privacy, asset paths, manifest, session-only default, HTTPS endpoint validation, authenticated POST, cache boundary, sw allowlist')).catch(e=>{console.error(e);process.exitCode=1});

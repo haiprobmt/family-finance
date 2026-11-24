@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="redesign.css" />
   <link rel="stylesheet" href="dashboard.css" />
   <link rel="stylesheet" href="soft-theme.css" />
+  <link rel="stylesheet" href="features.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -26,7 +27,7 @@
       <div>
         <h1>Chi tiêu gia đình</h1>
       </div>
-      <button class="icon-btn" id="assistantBtn" aria-label="Trợ lý tài chính"><span></span></button>
+      <div class="topbar-actions"><button class="icon-btn" id="privacyBtn" type="button" aria-pressed="false" aria-label="Ẩn số tiền"><span aria-hidden="true">◉</span></button><button class="icon-btn" id="assistantBtn" aria-label="Trợ lý tài chính"><span></span></button></div>
     </header>
 
     <main>
@@ -62,6 +63,15 @@
           <p class="budget-caption" id="budgetCaption">Đặt ngân sách để theo dõi giới hạn tháng</p>
         </article>
 
+        <nav class="hub-links" aria-label="Tài chính mở rộng">
+          <button type="button" data-nav="assets"><b>Tài sản &amp; nợ</b><span id="hubNetWorth">Giá trị ròng</span></button>
+          <button type="button" data-nav="plan"><b>Kế hoạch &amp; lịch</b><span id="hubPlan">Khoản định kỳ, dự báo</span></button>
+        </nav>
+        <section class="panel reminders-panel" id="homeReminders" aria-labelledby="homeRemindersTitle" hidden>
+          <div class="section-head"><h2 id="homeRemindersTitle">Nhắc việc</h2><button type="button" class="text-btn" data-nav="plan">Xem tất cả</button></div>
+          <ul class="reminder-list" id="homeReminderList"></ul>
+        </section>
+
 
 
 
@@ -86,6 +96,10 @@
           <strong class="accumulated-savings-value" id="accumulatedSavingsValue">—</strong>
         </article>
         <div class="dash-grid">
+          <section class="dash-card dash-wide" aria-labelledby="dashCashflowTitle"><div class="dash-card-head"><h3 id="dashCashflowTitle">Dòng tiền thực tế tháng đang xem</h3><span class="kind-badge actual">Thực tế</span></div><div class="kpi-grid" id="dashCashflow"></div><p class="dash-note">Chỉ gồm giao dịch đã ghi. Khoản định kỳ chưa xác nhận và dự báo không được cộng vào.</p></section>
+          <section class="dash-card" aria-labelledby="dashNetWorthTitle"><div class="dash-card-head"><h3 id="dashNetWorthTitle">Giá trị ròng</h3><button type="button" class="text-btn" data-nav="assets">Chi tiết ›</button></div><div id="dashNetWorth"></div></section>
+          <section class="dash-card" aria-labelledby="dashBudgetAlertsTitle"><div class="dash-card-head"><h3 id="dashBudgetAlertsTitle">Cảnh báo ngân sách</h3><button type="button" class="text-btn" data-nav="budget">Ngân sách ›</button></div><div id="dashBudgetAlerts"></div></section>
+          <section class="dash-card dash-wide forecast-card" aria-labelledby="dashForecastTitle"><div class="dash-card-head"><h3 id="dashForecastTitle">Dự báo dòng tiền 3 tháng tới</h3><span class="kind-badge forecast">Dự báo</span></div><div id="dashForecast"></div><button type="button" class="text-btn" data-nav="plan">Xem giả định và 12 tháng ›</button></section>
           <section class="dash-card dash-wide"><div class="dash-card-head"><h3 id="dashboardTrendTitle">Thu – chi 6 tháng</h3><span>Đơn vị: triệu đồng</span></div><div class="dash-legend"><span><i class="expense-dot"></i>Chi tiêu</span><span><i class="income-dot"></i>Thu nhập</span><span><i class="average-key"></i><b id="dashboardAverageLabel"></b></span></div><div class="dash-trend-scroll"><div id="dashboardTrend" class="dash-trend"></div></div><p class="dash-chart-hint">Bấm cột chi để xem danh mục của tháng.</p><div id="dashboardCategoryDetail" hidden><div class="dash-card-head"><h3 id="dashboardCategoriesTitle"></h3><button class="text-btn" id="closeDashboardCategories" aria-label="Đóng chi tiết danh mục">Đóng</button></div><div id="dashboardCategories"></div></div></section>
           <section class="dash-card dash-wide" aria-labelledby="weeklyTitle">
             <div class="dash-card-head"><h3 id="weeklyTitle">Chi tiêu theo tuần</h3></div>
@@ -120,6 +134,57 @@
         <div class="page-heading"><p class="eyebrow dark">KẾ HOẠCH THÁNG</p><h2>Ngân sách</h2><p>Đặt giới hạn phù hợp với gia đình bạn. Dùng chung cho gia đình qua Google Sheets.</p></div>
         <p id="budgetMonthLabel"></p><p id="budgetSyncStatus" role="status"></p><div id="budgetConflict" hidden><p>Ngân sách đã được sửa ở nơi khác.</p><button id="useRemoteBudget">Dùng bản trên Sheets</button><button id="useLocalBudget">Ghi bản trên máy lên Sheets</button></div><div id="budgetEditor" class="budget-editor"></div>
         <button class="save-budget" id="saveBudgetBtn">Lưu ngân sách</button>
+        <section class="panel" aria-labelledby="budgetInsightsTitle"><div class="section-head"><h2 id="budgetInsightsTitle">Theo dõi tháng đang xem</h2></div><p class="dash-note">Ngưỡng cảnh báo 80% và vượt 100%. Chỉ tính khoản chi đã ghi; khoản định kỳ chưa xác nhận hiển thị riêng.</p><div id="budgetInsights"></div></section>
+      </section>
+
+      <section class="view" id="assetsView" aria-labelledby="assetsTitle">
+        <div class="page-heading"><p class="eyebrow dark">TÀI SẢN &amp; NỢ</p><h2 id="assetsTitle">Giá trị ròng</h2><p>Tài sản trừ dư nợ tại cùng ngày chốt. Thiếu định giá hoặc lịch vay thì không tính tổng.</p></div>
+        <div id="extBanner" class="ext-banner" role="status" hidden></div>
+        <section class="panel">
+          <label class="inline-field">Ngày chốt <input id="netWorthCutoff" type="date" /></label>
+          <div id="netWorthSummary"></div>
+        </section>
+        <section class="panel" aria-labelledby="assetListTitle">
+          <div class="section-head"><h2 id="assetListTitle">Tài sản</h2><button type="button" class="filter" id="addAssetBtn">+ Thêm tài sản</button></div>
+          <div id="assetConflict" class="ext-banner warn" hidden></div>
+          <div id="assetList" class="item-list"></div>
+        </section>
+        <section class="panel" aria-labelledby="loanPositionTitle">
+          <div class="section-head"><h2 id="loanPositionTitle">Khoản vay</h2><span class="kind-badge scheduled">Lịch dự kiến</span></div>
+          <div id="loanPosition"></div>
+        </section>
+        <section class="panel" aria-labelledby="simulatorTitle">
+          <div class="section-head"><h2 id="simulatorTitle">Mô phỏng trả nợ trước hạn</h2><span class="kind-badge forecast">Mô phỏng</span></div>
+          <p class="dash-note">Kết quả theo giả định bạn nhập, không thay thế điều khoản hợp đồng vay. Không ghi dữ liệu.</p>
+          <form id="simulatorForm" class="form-grid">
+            <label>Khoản vay<select id="simLoan"></select></label>
+            <label>Dư nợ hiện tại (₫)<input id="simPrincipal" inputmode="numeric" required /></label>
+            <label>Lãi suất (%/năm)<input id="simRate" type="number" step="any" min="0" max="100" required /></label>
+            <label>Tháng bắt đầu<input id="simStart" type="month" required /></label>
+            <label>Cách trả<select id="simMethod"><option value="equal-principal">Gốc cố định hằng tháng</option><option value="annuity">Trả góp đều</option></select></label>
+            <label id="simPrincipalField">Gốc mỗi tháng (₫)<input id="simMonthlyPrincipal" inputmode="numeric" /></label>
+            <label id="simTermField" hidden>Số tháng còn lại<input id="simTerm" type="number" min="1" max="600" /></label>
+            <label>Trả thêm mỗi tháng (₫)<input id="simExtra" inputmode="numeric" value="0" /></label>
+            <label>Phí trả trước (%)<input id="simFee" type="number" step="any" min="0" max="100" value="0" /></label>
+            <button type="submit" class="submit-entry">Mô phỏng</button>
+          </form>
+          <div id="simulatorResult" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="view" id="planView" aria-labelledby="planTitle">
+        <div class="page-heading"><p class="eyebrow dark">KẾ HOẠCH</p><h2 id="planTitle">Lịch tài chính</h2><p>Khoản định kỳ chỉ thành giao dịch khi bạn xác nhận. Dự báo không thay đổi số liệu thực tế.</p></div>
+        <section class="panel" aria-labelledby="remindersTitle"><div class="section-head"><h2 id="remindersTitle">Nhắc việc</h2></div><ul class="reminder-list" id="planReminderList"></ul></section>
+        <section class="panel" aria-labelledby="calendarTitle"><div class="section-head"><h2 id="calendarTitle">60 ngày tới</h2><span class="kind-badge planned">Kế hoạch</span></div><div id="financialCalendar"></div></section>
+        <section class="panel" aria-labelledby="rulesTitle">
+          <div class="section-head"><h2 id="rulesTitle">Khoản định kỳ</h2><button type="button" class="filter" id="addRuleBtn">+ Thêm</button></div>
+          <div id="ruleConflict" class="ext-banner warn" hidden></div>
+          <div id="ruleList" class="item-list"></div>
+        </section>
+        <section class="panel" aria-labelledby="forecastTitle">
+          <div class="section-head"><h2 id="forecastTitle">Dự báo dòng tiền</h2><label class="inline-field">Số tháng<select id="forecastMonths"><option>3</option><option selected>6</option><option>12</option></select></label></div>
+          <div id="forecastTable"></div>
+        </section>
       </section>
     </main>
 
@@ -162,6 +227,13 @@
       <p class="privacy-note">Mã chỉ lưu trong trình duyệt, không có trong GitHub. Không bật ghi nhớ trên máy dùng chung. Cần triển khai apps-script/Code.gs trong repository trước khi kết nối.</p>
       <button class="submit-entry" id="saveEndpointBtn">Lưu kết nối</button>
       <p class="privacy-note">Google Sheets lưu giao dịch và ngân sách dùng chung. App tự tải lại khi được mở; bạn cũng có thể bấm “Đồng bộ” trong Lịch sử. Xóa ở một nơi sẽ được phản ánh ở nơi còn lại.</p>
+      <section class="settings-group" aria-labelledby="backupTitle">
+        <h3 id="backupTitle">Sao lưu &amp; xuất dữ liệu</h3>
+        <p class="privacy-note">Tệp tải về chứa dữ liệu tài chính gia đình (không có mã kết nối). Chỉ lưu ở nơi riêng tư, không chia sẻ công khai.</p>
+        <button class="sync-btn" id="backupBtn" type="button">Tải bản sao lưu trên máy (JSON)</button>
+        <div class="export-row"><label>Từ<input id="exportFrom" type="month" /></label><label>Đến<input id="exportTo" type="month" /></label><button class="sync-btn" id="exportCsvBtn" type="button">Xuất CSV</button></div>
+        <p class="privacy-note" id="syncDiagnostics"></p>
+      </section>
       <button class="sync-btn" id="installAppBtn" type="button">Cài app / Thêm vào màn hình chính</button>
       <button class="danger-link" id="disconnectBtn" type="button">Đăng xuất và xóa bản lưu trên máy</button>
       <button class="danger-link" id="clearDataBtn">Xóa dữ liệu trên thiết bị này</button>
@@ -174,9 +246,11 @@
       <div class="sheet-head"><h2 id="assistantTitle">Trợ lý</h2><button class="close-btn" data-close="assistant" aria-label="Đóng">×</button></div>
       <div class="chat-log" id="chatLog" role="log" aria-live="polite"><div class="chat-bubble ai">Xin chào, bạn muốn hỏi gì về tình hình chi tiêu của gia đình?</div></div>
       <div class="assistant-prompts" aria-label="Gợi ý câu hỏi">
-        <button data-ai-question="Phân tích chi tiêu trong tháng đang xem: tiền tập trung vào đâu, khoản nào bất thường và có thể tiết giảm?">Phân tích</button>
-        <button data-ai-question="Dựa trên lịch sử thu chi thực tế, dự báo chi tiêu tháng tới. Nêu rõ cách ước tính, giả định và mức độ chắc chắn; tách riêng khoản trả nợ dự kiến để tránh cộng trùng.">Dự báo</button>
-        <button data-ai-question="Tóm tắt tổng quan tài chính gia đình trong tháng đang xem: thu nhập, chi tiêu, còn lại và so sánh với tháng trước.">Tổng quan</button>
+        <button data-ai-tool="summary" data-ai-question="Tóm tắt tổng quan tài chính gia đình trong tháng đang xem: thu nhập, chi tiêu, còn lại và so sánh với tháng trước.">Tổng quan</button>
+        <button data-ai-tool="expense_analysis" data-ai-question="Phân tích chi tiêu trong tháng đang xem: tiền tập trung vào đâu, khoản nào bất thường và có thể tiết giảm?">Phân tích</button>
+        <button data-ai-tool="budget_status" data-ai-question="Tình hình ngân sách tháng đang xem: danh mục nào sắp hoặc đã vượt?">Ngân sách</button>
+        <button data-ai-tool="loan_position" data-ai-question="Tình hình khoản vay tháng đang xem: phải trả bao nhiêu, phần lãi và phần gốc, dữ liệu có đủ không?">Khoản vay</button>
+        <button data-ai-tool="forecast" data-ai-question="Dự báo dòng tiền các tháng tới. Nêu rõ giả định, khoản kế hoạch, lịch vay và dữ liệu còn thiếu.">Dự báo</button>
       </div>
       <div class="assistant-composer"><textarea id="assistantQuestion" rows="2" aria-label="Câu hỏi cho trợ lý" placeholder="Hỏi về thu chi của gia đình…"></textarea><button id="askAssistantBtn" aria-label="Gửi câu hỏi">↑</button></div>
 
@@ -202,11 +276,74 @@
     </section>
   </div>
 
+  <div class="overlay" id="assetOverlay" aria-hidden="true">
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="assetFormTitle">
+      <div class="sheet-head"><h2 id="assetFormTitle">Tài sản</h2><button class="close-btn" data-close-overlay="assetOverlay" aria-label="Đóng">×</button></div>
+      <form id="assetForm" class="form-grid">
+        <label>Loại<select id="assetType"></select></label>
+        <label>Tên<input id="assetName" maxlength="120" required /></label>
+        <label>Giá trị hiện tại (₫)<input id="assetValue" inputmode="numeric" /></label>
+        <label>Ngày định giá<input id="assetValuationDate" type="date" /></label>
+        <label>Tỷ lệ sở hữu (%)<input id="assetShare" type="number" min="1" max="100" step="any" value="100" required /></label>
+        <label>Ngày mua/mở<input id="assetAcqDate" type="date" /></label>
+        <label>Giá mua (₫)<input id="assetAcqValue" inputmode="numeric" /></label>
+        <label>Trạng thái<select id="assetStatus"><option value="active">Đang nắm giữ</option><option value="sold">Đã bán</option><option value="closed">Đã đóng</option></select></label>
+        <label>Ngày bán/đóng<input id="assetDisposal" type="date" /></label>
+        <label class="wide">Ghi chú<input id="assetNotes" maxlength="500" /></label>
+        <p class="dash-note wide">Giá trị do bạn nhập được ghi nhận là <b>ước tính</b>. Để trống nếu chưa biết — app sẽ báo thiếu thay vì coi là 0.</p>
+        <button class="submit-entry wide" type="submit">Lưu tài sản</button>
+      </form>
+    </section>
+  </div>
+  <div class="overlay" id="valuationOverlay" aria-hidden="true">
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="valuationTitle">
+      <div class="sheet-head"><h2 id="valuationTitle">Cập nhật định giá</h2><button class="close-btn" data-close-overlay="valuationOverlay" aria-label="Đóng">×</button></div>
+      <form id="valuationForm" class="form-grid">
+        <label>Ngày định giá<input id="valDate" type="date" required /></label>
+        <label>Giá trị (₫)<input id="valValue" inputmode="numeric" required /></label>
+        <label>Nguồn<select id="valSource"></select></label>
+        <label class="wide">Ghi chú<input id="valNote" maxlength="300" /></label>
+        <div class="wide" id="valHistory"></div>
+        <button class="submit-entry wide" type="submit">Lưu định giá</button>
+      </form>
+    </section>
+  </div>
+  <div class="overlay" id="ruleOverlay" aria-hidden="true">
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="ruleFormTitle">
+      <div class="sheet-head"><h2 id="ruleFormTitle">Khoản định kỳ</h2><button class="close-btn" data-close-overlay="ruleOverlay" aria-label="Đóng">×</button></div>
+      <form id="ruleForm" class="form-grid">
+        <label>Loại<select id="ruleType"><option value="Expense">Khoản chi</option><option value="Income">Thu nhập</option></select></label>
+        <label>Danh mục<select id="ruleCategory"></select></label>
+        <label>Số tiền (₫)<input id="ruleAmount" inputmode="numeric" required /></label>
+        <label>Lặp lại<select id="ruleCadence"></select></label>
+        <label>Mỗi<input id="ruleInterval" type="number" min="1" max="12" value="1" required /></label>
+        <label>Bắt đầu<input id="ruleStart" type="date" required /></label>
+        <label>Kết thúc<input id="ruleEnd" type="date" /></label>
+        <label>Người<select id="rulePerson"><option>Vợ</option><option>Chồng</option><option selected>Gia đình</option></select></label>
+        <label class="wide">Ghi chú<input id="ruleNote" maxlength="200" /></label>
+        <label class="wide check"><input id="rulePaused" type="checkbox" /> Tạm dừng</label>
+        <button class="submit-entry wide" type="submit">Lưu khoản định kỳ</button>
+      </form>
+    </section>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="src/domain/money.js"></script>
+  <script src="src/domain/budget.js"></script>
+  <script src="src/domain/cashflow.js"></script>
+  <script src="src/domain/loan.js"></script>
+  <script src="src/domain/net-worth.js"></script>
+  <script src="src/domain/recurring.js"></script>
+  <script src="src/domain/forecast.js"></script>
+  <script src="src/domain/insights.js"></script>
+  <script src="src/sync/engine.js"></script>
+  <script src="src/data/local-store.js"></script>
+  <script src="src/features/ext-store.js"></script>
   <script src="web-bridge.js"></script>
   <script src="loans-data.js"></script>
   <script src="dashboard.js"></script>
   <script src="app.js"></script>
+  <script src="src/features/finance-views.js"></script>
   <script src="ui-icons.js"></script>
   <script src="pwa.js"></script>
 </body>
