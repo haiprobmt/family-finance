@@ -73,7 +73,7 @@ class FakeSheet {
     };
   }
   // Test helper: plain JSON view with dates as YYYY-MM-DD.
-  dump() { return this.rows.map(r => r.map(v => isDate(v) ? v.toISOString().slice(0, 10) : v)); }
+  dump() { return JSON.parse(JSON.stringify(this.rows.map(r => Array.from(r, v => isDate(v) ? v.toISOString().slice(0, 10) : v)))); }
 }
 
 class FakeSpreadsheet {
