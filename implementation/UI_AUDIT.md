@@ -1,6 +1,7 @@
 # UI Modernization — Phase 0 Repository Audit
 
-Status: **awaiting owner approval.** No application code was changed in Phase 0.
+Status: **approved by the owner** (all decisions in §8 accepted). Implementation and results: `UI_RELEASE_NOTES.md`.
+No application code was changed in Phase 0.
 Audited: `main` @ `7fe12a6` (includes the 3.0 work merged in PR #2). Specs read:
 UI_DESIGN_SYSTEM.md, UI_COMPONENT_CATALOG.md, UI_IMPLEMENTATION_GUIDE.md, PRD, ARCHITECTURE,
 API_COMPATIBILITY, DATA_MODEL, TEST_PLAN.

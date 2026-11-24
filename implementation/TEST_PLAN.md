@@ -133,6 +133,7 @@ Expand the suite without removing existing privacy, endpoint validation, session
 | `tests/backend.test.cjs` | Integration | Migrations (dry-run, additive, repeatable, abort), ext collections, assistant tools, reconciliation |
 | `tests/sync.test.cjs` | Sync (unit) | Merge parity, decisions, operation view, status model, backup/CSV safety, local store |
 | `tests/e2e/sync.e2e.cjs` | Sync (browser) | §4 matrix with two devices |
+| `tests/e2e/ui.e2e.cjs` | UI (3.0 design system) | Value parity with the pre-redesign UI, 7 widths, 44 px targets, routing/back, dialog focus, axe-core WCAG 2.2 AA |
 | `tests/e2e/features.e2e.cjs` | UI/Security/Release | Assets + conflicts, recurring idempotency, privacy mode, assistant, drill-through, simulator, backup, legacy backend, SW, layout, XSS |
 
 Harness: `tests/harness/apps-script-runtime.cjs` emulates the Sheets behaviours the backend relies on (date auto-typing, apostrophe literals, cross-realm Dates). It does **not** replace testing against a copied spreadsheet and a test deployment.

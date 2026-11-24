@@ -186,3 +186,16 @@ apps-script/          Code.gs (router), Domain.gs (generated), TransactionServic
 ~~~
 
 Still classic `<script>` files with static hosting (no build step for the PWA). The only build step is `npm run build:apps-script`, which concatenates the domain modules into `Domain.gs`; `tests/contract.test.cjs` fails if the file is stale.
+
+## 11. Presentation layer (professional UI)
+
+~~~text
+docs/styles/      tokens.css → base.css → layout.css → components.css → pages.css (only stylesheets)
+docs/src/ui/      format.js (MoneyAmount formatting, privacy mask) · icons.js (line icons)
+                  components.js (catalog components → escaped HTML strings) · charts.js (bar, donut + tables)
+                  overlay.js (Modal/BottomSheet focus management) · shell.js (routes, active nav, icons)
+~~~
+
+Components never read state, call the API or compute financial values. View code in app.js, dashboard.js
+and finance-views.js gathers values from FFDomain and the existing state, then composes components.
+Hash routes map to the existing `nav(view)`; `dashboard` remains an alias for `reports`.

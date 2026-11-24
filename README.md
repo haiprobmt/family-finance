@@ -48,7 +48,11 @@ Once synced, transactions and budgets are shared through the same spreadsheet.
 - **Assistant:** quick buttons use deterministic calculations from your sheet and show the
   source, period and missing data; the AI only explains them and cannot change records.
 
-Planning documents, audit and release status: `implementation/` (start with `RELEASE_REPORT.md`).
+- **Professional UI:** desktop sidebar, tablet icon rail, phone bottom navigation; linkable pages
+  (`#/giao-dich`, `#/ngan-sach`, …) with browser back; WCAG 2.2 AA checked with axe-core.
+
+Planning documents, audit and release status: `implementation/` (start with `RELEASE_REPORT.md`;
+UI work: `UI_RELEASE_NOTES.md`).
 
 ## Install
 

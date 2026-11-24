@@ -1,0 +1,47 @@
+{
+  "home": {
+    "expenseTotal": "1.256.000 ₫",
+    "incomeTotal": "23.800.000 ₫",
+    "remainingTotal": "22.544.000 ₫",
+    "savingRate": "95%",
+    "budgetGaugeValue": "6%",
+    "budgetGaugeLimit": "22,52 tr",
+    "budgetCaption": "Còn 21.261.123 ₫",
+    "debtSummary": "Trả nợ · Dự kiến 7.517.123 ₫ · Đã trả 0 ₫ · Còn phải trả 7.517.123 ₫"
+  },
+  "dashboard": {
+    "cumulativeIncome": "67.500.000 ₫",
+    "cumulativeExpense": "3.695.000 ₫",
+    "savings": "63.805.000 ₫",
+    "cashflow": "Thu nhập23.800.000 ₫Xem giao dịch ›Chi tiêu1.256.000 ₫Xem giao dịch ›Dòng tiền ròng22.544.000 ₫Tỷ lệ tiết kiệm95%",
+    "netWorth": "605.000.000 ₫Tài sản1.500.000.000 ₫Dư nợ895.000.000 ₫Chốt 24/11/2026",
+    "loanRows": [
+      "Shinhan10/2026900.000.000 ₫7,5%5.732.877 ₫",
+      "Techcombank10/2026300.000.000 ₫9%2.293.151 ₫",
+      "Shinhan11/2026895.000.000 ₫7,5%5.517.123 ₫",
+      "Shinhan12/2026890.000.000 ₫7,5%5.669.178 ₫",
+      "Shinhan01/2027885.000.000 ₫7,5%5.637.329 ₫",
+      "Shinhan02/2027880.000.000 ₫7,5%5.063.014 ₫",
+      "Shinhan03/2027875.000.000 ₫7,5%5.573.630 ₫",
+      "Shinhan04/2027870.000.000 ₫7,5%5.363.014 ₫"
+    ]
+  },
+  "budget": {
+    "food": "4.500.000",
+    "grocery": "3.000.000",
+    "kids": "2.500.000",
+    "transport": "1.200.000",
+    "home": "0",
+    "bills": "1.500.000",
+    "health": "800.000",
+    "couple-allowance": "1.000.000",
+    "other": "500.000",
+    "loan-payment": "7.517.123"
+  },
+  "assets": {
+    "netWorth": "Tài sản (theo tỷ lệ sở hữu)1.500.000.000 ₫Dư nợ vay895.000.000 ₫Giá trị ròng605.000.000 ₫",
+    "loans": "Tháng 11/2026. Lãi là chi phí; gốc làm giảm dư nợ (không tính là chi tiêu trong giá trị ròng).Ngân hàngDư nợLãiGốcPhải trảShinhan895.000.000 ₫5.517.123 ₫—5.517.123 ₫Trả thêm2.000.000 ₫Tổng dự kiến: 7.517.123 ₫"
+  },
+  "historyCount": 22,
+  "_note": "Displayed values captured from the pre-redesign UI (commit 7fe12a6) on the synthetic e2e fixture. Used by tests/e2e/ui.e2e.cjs to prove the redesign shows the same financial values."
+}
