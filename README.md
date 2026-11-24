@@ -15,9 +15,14 @@ The published folder is `docs/`; `apps-script/` is backend source, not a hosted 
 ## Connect your existing spreadsheet
 
 1. Back up your existing spreadsheet and Apps Script. Finish pending sync on both phones.
-2. In the bound Apps Script project replace `Code.gs` with `apps-script/Code.gs`.
+2. In the bound Apps Script project add **every** file listed in `apps-script/files.json`
+   (`Domain.gs`, `Code.gs`, `TransactionService.gs`, `BudgetService.gs`, `LoanReadService.gs`,
+   `Extensions.gs`, `Migrations.gs`, `Assistant.gs`), replacing the old `Code.gs`, or run
+   `clasp push` from `apps-script/`. Do this on a **copy** of the spreadsheet first.
    Keep existing `FAMILY_ACCESS_TOKEN` and `DEEPSEEK_API_KEY` Script Properties.
    Never put either value in this repository, an issue, or a URL.
+   Optional 3.0 features (assets, recurring rules): in the editor run `migrationsDryRun`,
+   review, then `migrationsApply`. It only adds new sheets; existing sheets are never changed.
 3. Deploy → Manage deployments → Edit → New version → Deploy.
    Execute as yourself; access **Anyone**. All financial API actions still require the family token.
    The API remains compatible with Android APK 2.3.0.
@@ -28,6 +33,22 @@ The published folder is `docs/`; `apps-script/` is backend source, not a hosted 
 
 APK local drafts and settings do not automatically transfer into the browser.
 Once synced, transactions and budgets are shared through the same spreadsheet.
+
+## Family Finance 3.0 features
+
+- **Dashboard 2.0:** actual cash flow (tap a figure to see its source transactions), net worth,
+  budget alerts and a clearly labelled 3-month forecast.
+- **Tài sản & nợ:** asset register with valuation history, net worth at a chosen date
+  (shown only when assets and loan balances are complete), loan interest vs principal, and a
+  repayment simulator that lists its assumptions.
+- **Kế hoạch & lịch:** recurring income/expenses, 60-day calendar, reminders. A planned item
+  becomes a transaction only when you confirm it (safe to confirm twice or on two phones).
+- **Budget tracking:** 80%/100% thresholds and month-over-month change; planned items shown separately.
+- **Privacy:** ◉ button hides all amounts. Settings → backup (JSON) and CSV export by date range.
+- **Assistant:** quick buttons use deterministic calculations from your sheet and show the
+  source, period and missing data; the AI only explains them and cannot change records.
+
+Planning documents, audit and release status: `implementation/` (start with `RELEASE_REPORT.md`).
 
 ## Install
 
@@ -69,5 +90,21 @@ Actual transactions, budgets and savings do not depend on this import.
 
 ## Local verification
 
-Serve `docs/` over HTTP on localhost. Run `node tests/web.cjs` for privacy/transport checks.
-Live two-phone sync and installation must be verified against your own Apps Script deployment.
+Serve `docs/` over HTTP on localhost. All tests use synthetic data only:
+
+```bash
+npm test
+```
+
+runs the privacy/transport checks plus unit, legacy-parity, API-contract and backend tests.
+
+```bash
+npm run e2e
+```
+
+drives the real PWA in Chromium (two devices) against the real Apps Script files on an
+in-memory Sheets emulation. It needs `playwright`.
+
+After editing `docs/src/domain/`, regenerate the backend copy with `npm run build:apps-script`.
+Live two-phone sync, APK 2.3.0 and installation must still be verified against your own
+test Apps Script deployment.

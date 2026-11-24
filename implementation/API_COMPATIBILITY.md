@@ -93,3 +93,17 @@ Until a separately approved API version is deployed:
 - Returning fake success for writes.
 - Changing loan inclusion rules.
 - Exposing AI provider credentials to clients.
+
+## 6. 3.0 additive actions (implemented)
+
+All require the same token and `nativeVersion=3`. `apiVersion` stays `3`; no existing field, action or code changed (proven by `tests/contract.test.cjs`). Old clients never call these.
+
+| Action | Request fields | Success response | Errors / codes |
+|---|---|---|---|
+| `ext_snapshot` | — | `{ok, extVersion:1, schema:[migrationIds], collections:{assets, valuations, recurring}}`; each `{available, values, revision}` (`available:false` before migration) | — |
+| `ext_save` | `collection` (`assets`\|`valuations`\|`recurring`), `values` (JSON array, whole collection), `revision` | `{ok, collection:{available, values, revision}}` | `FEATURE_NOT_MIGRATED`; `COLLECTION_CONFLICT` with current `collection`; validation error message. Identical content is idempotent even with a stale revision |
+| `assistant_tool` | `tool` (`summary`, `expense_analysis`, `budget_status`, `loan_position`, `repayment_simulation`, `forecast`), `month` (YYYY-MM), `question`, `context` (JSON: `rates`, `months`, `simulation`) | `{ok, tool:{tool, period, kind, coverage, provenance, data}, answer, answerError}` — `answer` is null with `answerError` when the provider fails; tool data is still returned | unknown tool rejected; payload > 100 kB rejected |
+
+Server-side only (Apps Script editor, never routed by `doPost`): `migrationsDryRun`, `migrationsApply`, `reconciliationReport`.
+
+The PWA treats "Thao tác không được hỗ trợ" from an older deployment as "extension unsupported" and keeps working on the v3 actions.

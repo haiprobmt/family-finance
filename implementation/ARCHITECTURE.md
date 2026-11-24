@@ -172,3 +172,17 @@ The model is not the source of truth. Tool output is. Keep provider credentials 
 ## 9. Android boundary
 
 Only APK artifact is available here. Do not claim a native refactor or use decompilation as a substitute for source. Preserve APK 2.3.0 API compatibility. Request source repository, application ID, build instructions and signing ownership before changing native code. If Android is a WebView wrapper, confirm from source first.
+
+## 10. As implemented (3.0)
+
+~~~text
+docs/src/domain/      pure engine (shared with Apps Script via generated apps-script/Domain.gs)
+docs/src/sync/        engine.js — merge, decisions, operation view, status model, backup/CSV
+docs/src/data/        local-store.js — legacy key inventory, additive schema marker
+docs/src/features/    ext-store.js (collections sync), finance-views.js (3.0 views)
+docs/app.js, dashboard.js   legacy UI, now delegating calculations/sync rules to the modules above
+apps-script/          Code.gs (router), Domain.gs (generated), TransactionService, BudgetService,
+                      LoanReadService, Extensions, Migrations, Assistant; order in files.json
+~~~
+
+Still classic `<script>` files with static hosting (no build step for the PWA). The only build step is `npm run build:apps-script`, which concatenates the domain modules into `Domain.gs`; `tests/contract.test.cjs` fails if the file is stale.

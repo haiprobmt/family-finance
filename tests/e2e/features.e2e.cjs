@@ -186,3 +186,20 @@ test('responsive layout: no horizontal page overflow on phone and desktop; contr
     }
   } finally { await w.close(); }
 });
+
+test('user-entered text is rendered as text (no HTML/script injection) across views', async () => {
+  const w = await createWorld({ now: NOW, migrate: true });
+  try {
+    const a = await w.device('A'); await w.connect(a);
+    const payload = '<img src=x onerror="window.__xss=1"><b>x</b>';
+    await w.addEntry(a, { amount: 1000, note: payload });
+    await addAsset(a, { name: payload, value: 1000 });
+    await a.page.waitForFunction(() => JSON.parse(localStorage.getItem('ffpages:ext_cache_v1')).collections.assets.values.length === 1);
+    for (const view of ['home', 'history', 'dashboard', 'assets', 'plan']) await go(a, view);
+    assert.equal(await a.page.evaluate(() => window.__xss), undefined);
+    assert.equal(await a.page.locator('main img').count(), 0, 'no injected <img> elements');
+    assert.equal(await a.page.locator('#historyList b:text-is("x"), #assetList b:text-is("x")').count(), 0, 'no injected <b> elements');
+    assert.match(await a.page.textContent('#assetList'), /<img src=x/);
+    assert.equal(w.sheetRows('Transactions').find(r => r[7] === payload)[7], payload, 'stored verbatim, not interpreted');
+  } finally { await w.close(); }
+});

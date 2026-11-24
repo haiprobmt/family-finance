@@ -1,6 +1,6 @@
 # Family Finance 3.0 — Implementation Pack
 
-Status: planning baseline; documentation only.
+Status: release candidate implemented on branch `claude/gallant-babbage-5dl3j6` — see RELEASE_REPORT.md. Production cutover pending owner gates.
 Repository: haiprobmt/family-finance.
 
 ## Approved decisions
@@ -25,6 +25,8 @@ Repository: haiprobmt/family-finance.
 6. IMPLEMENTATION_PLAN.md — workstreams, dependencies and milestones.
 7. TEST_PLAN.md — test matrix and release gates.
 8. AGENT_GUIDE.md — coding-agent rules.
+9. BASELINE_AUDIT.md — W0 audit: discrepancies, storage keys, write paths.
+10. RELEASE_REPORT.md — what was built, test evidence, gate status, cutover runbook.
 
 ## Repository facts verified from main
 
@@ -37,9 +39,9 @@ Repository: haiprobmt/family-finance.
 - README states compatibility with Android APK 2.3.0.
 - No Android source project or APK build pipeline is present.
 
-## Scope of this documentation change
+## Scope
 
-This pack does not modify application code, Apps Script deployments, Google Sheets, secrets, private loan records, APK files or GitHub Pages runtime assets.
+The original pack was documentation only. The 3.0 implementation (see RELEASE_REPORT.md) changes application code and Apps Script source in this repository; it does not touch any deployment, Google Sheet, secret, private loan record or APK.
 
 ## Non-negotiable safety rules
 

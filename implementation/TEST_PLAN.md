@@ -120,3 +120,19 @@ Expand the suite without removing existing privacy, endpoint validation, session
 - [ ] Backup and rollback rehearsal completed.
 - [ ] PWA install/update/service-worker behavior verified.
 - [ ] Owner approves single-release cutover.
+
+## 8. Implemented test inventory
+
+| File | Layer | Covers |
+|---|---|---|
+| `tests/web.cjs` | Security/release | Original assertions + SW allowlist equals referenced assets, secret scan of `docs/src` |
+| `tests/characterization.test.cjs` | Characterization | Legacy budgets, -1 sentinel, loans (Techcombank cut-off, 365/909,400), cash flow, merge, search, full legacy v3 contract |
+| `tests/parity.test.cjs` | Unit (parity) | Domain vs frozen legacy on randomized synthetic inputs |
+| `tests/domain.test.cjs` | Unit | Money/dates, budget thresholds, liabilities, simulator, net worth, recurring, forecast, insights |
+| `tests/contract.test.cjs` | Contract | Legacy vs refactored backend: identical responses and sheets; chat_scoped; Domain.gs drift |
+| `tests/backend.test.cjs` | Integration | Migrations (dry-run, additive, repeatable, abort), ext collections, assistant tools, reconciliation |
+| `tests/sync.test.cjs` | Sync (unit) | Merge parity, decisions, operation view, status model, backup/CSV safety, local store |
+| `tests/e2e/sync.e2e.cjs` | Sync (browser) | §4 matrix with two devices |
+| `tests/e2e/features.e2e.cjs` | UI/Security/Release | Assets + conflicts, recurring idempotency, privacy mode, assistant, drill-through, simulator, backup, legacy backend, SW, layout, XSS |
+
+Harness: `tests/harness/apps-script-runtime.cjs` emulates the Sheets behaviours the backend relies on (date auto-typing, apostrophe literals, cross-realm Dates). It does **not** replace testing against a copied spreadsheet and a test deployment.

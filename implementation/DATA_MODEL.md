@@ -98,3 +98,18 @@ These are future logical entities, not authorization to create sheets immediatel
 - Each migration records version, timestamp, row counts and validation result, never sensitive values.
 - Migration must be safe to rerun.
 - Rollback restores a pre-migration backup; do not rely on destructive reverse migrations.
+
+## 7. Implemented in 3.0 (created only by `migrationsApply()`)
+
+| Sheet | Headers | Notes |
+|---|---|---|
+| `Assets` | id, type, name, currency, acquisitionDate, acquisitionValue, currentValue, valuationDate, ownershipShare, notes, status, disposalDate, UpdatedAt | type ∈ cash, bank, real-estate, vehicle, investment, other; share 0–1; empty value = unknown |
+| `AssetValuations` | id, assetId, valuationDate, value, sourceType, note, UpdatedAt | sourceType ∈ estimate, statement, appraisal, market |
+| `RecurringRules` | id, type, amount, category, person, note, cadence, interval, startDate, endDate, status, skipped, UpdatedAt | cadence ∈ weekly, monthly, yearly; `skipped` = comma-separated dates |
+| `Migrations` | MigrationId, AppliedAt, Result, Counts | metadata only (legacy row counts) |
+
+Text cells are written with a leading apostrophe so Sheets never re-types them (dates, numbers, formulas). Each collection's revision is SHA-256 of its canonical JSON sorted by id.
+
+Planned occurrences are **not stored**: they are generated deterministically from rules. Occurrence/transaction ID = `rec-<ruleId>-<YYYY-MM-DD>`, so confirming twice (or from two devices) creates one transaction (invariant 12). Confirmation writes through the existing `v3_create`.
+
+Not implemented (still future): LoanAccount, LoanBalanceSnapshot, LoanPaymentSchedule, LoanPayment, FinancialGoal, Notification. The private `Loans` sheet stays the only loan source, as FR-03 requires until schema discovery is approved.
