@@ -15,15 +15,17 @@ The published folder is `docs/`; `apps-script/` is backend source, not a hosted 
 ## Connect your existing spreadsheet
 
 1. Back up your existing spreadsheet and Apps Script. Finish pending sync on both phones.
-2. In the bound Apps Script project add **every** file listed in `apps-script/files.json`
-   (`Domain.gs`, `Code.gs`, `TransactionService.gs`, `BudgetService.gs`, `LoanReadService.gs`,
-   `Extensions.gs`, `Migrations.gs`, `Assistant.gs`), replacing the old `Code.gs`, or run
-   `clasp push` from `apps-script/`. Do this on a **copy** of the spreadsheet first.
+2. In the bound Apps Script project, **replace the whole content of `Code.gs` with
+   [`apps-script/dist/Code.gs`](apps-script/dist/Code.gs)**. It is one generated file containing
+   the entire backend, so no extra files are needed. (Developers can instead `clasp push` the
+   separate files in `apps-script/`; never use both.) Ideally try it on a copy of the spreadsheet first.
    Keep existing `FAMILY_ACCESS_TOKEN` and `DEEPSEEK_API_KEY` Script Properties.
    Never put either value in this repository, an issue, or a URL.
    Optional 3.0 features (assets, recurring rules): in the editor run `migrationsDryRun`,
    review, then `migrationsApply`. It only adds new sheets; existing sheets are never changed.
-3. Deploy → Manage deployments → Edit → New version → Deploy.
+3. Deploy → Manage deployments → **Edit (pencil) on the existing deployment** → Version: **New version** → Deploy.
+   Editing the existing deployment keeps the same `/exec` URL, so the APK and both phones keep syncing
+   without any change; creating a *new* deployment would change the URL.
    Execute as yourself; access **Anyone**. All financial API actions still require the family token.
    The API remains compatible with Android APK 2.3.0.
 4. Open the Pages app, enter the same `/exec` URL and token (at least 24 characters).

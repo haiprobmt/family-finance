@@ -147,6 +147,8 @@ function loadBackend(files, options = {}) {
 
 // Backend file list as deployed (order matters only for top-level statements).
 function backendFiles() {
+  // FF_BACKEND=bundle runs everything against the deployable single-file apps-script/dist/Code.gs.
+  if (process.env.FF_BACKEND === 'bundle') return ['apps-script/dist/Code.gs'];
   const dir = path.join(ROOT, 'apps-script');
   const manifest = path.join(dir, 'files.json');
   if (fs.existsSync(manifest)) return JSON.parse(fs.readFileSync(manifest, 'utf8')).map(f => path.join('apps-script', f));

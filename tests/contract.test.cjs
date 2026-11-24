@@ -60,3 +60,26 @@ test('apps-script/Domain.gs is generated from docs/src/domain (no drift)', () =>
   const onDisk = fs.readdirSync(path.join(ROOT, 'apps-script')).filter(f => f.endsWith('.gs'));
   assert.deepEqual(onDisk.sort(), manifest.slice().sort(), 'every deployed .gs file is listed in files.json');
 });
+
+test('deployable single-file bundle (apps-script/dist/Code.gs) answers APK/v3 traffic exactly like legacy Code.gs', () => {
+  const legacy = scenario.run(['tests/legacy/Code.legacy.gs']);
+  const bundle = scenario.run(['apps-script/dist/Code.gs']);
+  assert.equal(bundle.transcript.length, legacy.transcript.length);
+  for (let i = 0; i < legacy.transcript.length; i++) assert.deepEqual(bundle.transcript[i], legacy.transcript[i], legacy.transcript[i].label);
+  assert.deepEqual(bundle.sheets, legacy.sheets, 'identical sheet contents');
+});
+
+test('deployable bundle: 3.0 extras work (migrations, ext collections, assistant tool) and v3 stays intact afterwards', () => {
+  const ss = syn.seedSpreadsheet(new FakeSpreadsheet());
+  const rt = loadBackend(['apps-script/dist/Code.gs'], { spreadsheet: ss, properties: { FAMILY_ACCESS_TOKEN: syn.TEST_TOKEN, DEEPSEEK_API_KEY: 'k' }, fetchHandler: () => ({ status: 200, body: { choices: [{ message: { content: 'ok' } }] } }), now: '2026-11-24T03:00:00Z' });
+  assert.equal(JSON.parse(rt.call('migrationsDryRun')).dryRun, true);
+  assert.deepEqual(JSON.parse(rt.call('migrationsApply')).results.map(r => r.status), ['applied-now', 'applied-now']);
+  const snap = rt.post(scenario.auth({ action: 'ext_snapshot' }));
+  assert.equal(snap.collections.assets.available, true);
+  const saved = rt.post(scenario.auth({ action: 'ext_save', collection: 'recurring', values: JSON.stringify([{ id: 'r1', type: 'Expense', amount: 1000, category: 'home', person: 'Gia đình', note: '', cadence: 'monthly', interval: 1, startDate: '2026-12-01', endDate: '', status: 'active', skipped: [] }]), revision: snap.collections.recurring.revision }));
+  assert.equal(saved.ok, true);
+  assert.equal(rt.post(scenario.auth({ action: 'assistant_tool', tool: 'summary', month: '2026-10' })).answer, 'ok');
+  const v3 = rt.post(scenario.auth({ action: 'snapshot' }));
+  assert.deepEqual(Object.keys(v3).sort(), ['apiVersion', 'assistantKnowledgeVersion', 'budgets', 'loans', 'ok', 'transactions', 'webVersion'], 'APK snapshot shape unchanged after migration');
+  assert.equal(rt.post(scenario.auth({ action: 'v3_create', ...scenario.tx('after-migration') })).ok, true);
+});
