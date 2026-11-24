@@ -71,18 +71,20 @@
     return ops;
   }
 
-  // ---- Status model: unconfigured | syncing | conflict | failed | pending | synced | unverified ----
-  function syncStatus({ configured, syncing = false, lastError = null, lastSyncOk = false, operations = [] }) {
+  // ---- Status model: unconfigured | conflict | offline | syncing | failed | pending | synced | unverified ----
+  // `online` is optional (navigator.onLine); only an explicit false reports the offline state.
+  function syncStatus({ configured, syncing = false, lastError = null, lastSyncOk = false, operations = [], online = true }) {
     const pending = operations.length, conflict = operations.some(o => o.conflict);
     let state;
     if (!configured) state = 'unconfigured';
-    else if (syncing) state = 'syncing';
     else if (conflict) state = 'conflict';
+    else if (online === false) state = 'offline';
+    else if (syncing) state = 'syncing';
     else if (lastError) state = 'failed';
     else if (pending) state = 'pending';
     else if (lastSyncOk) state = 'synced';
     else state = 'unverified';
-    const label = { unconfigured: 'Chưa kết nối', syncing: 'Đang đồng bộ…', conflict: 'Xung đột · Xem lại', failed: pending ? 'Lỗi đồng bộ · ' + pending + ' thay đổi chờ · Thử lại' : 'Lỗi đồng bộ · Thử lại', pending: pending + ' thay đổi chờ gửi · Thử lại', synced: 'Đã đồng bộ', unverified: 'Chờ đồng bộ · Thử lại' }[state];
+    const label = { unconfigured: 'Chưa kết nối', offline: pending ? 'Ngoại tuyến · ' + pending + ' thay đổi lưu trên máy' : 'Ngoại tuyến · Dữ liệu trên máy', syncing: 'Đang đồng bộ…', conflict: 'Xung đột · Xem lại', failed: pending ? 'Lỗi đồng bộ · ' + pending + ' thay đổi chờ · Thử lại' : 'Lỗi đồng bộ · Thử lại', pending: pending + ' thay đổi chờ gửi · Thử lại', synced: 'Đã đồng bộ', unverified: 'Chờ đồng bộ · Thử lại' }[state];
     return { state, pending, conflict, label, error: lastError };
   }
 

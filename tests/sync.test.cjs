@@ -60,6 +60,10 @@ test('operation view and status model', () => {
   const st = o => E.syncStatus({ configured: true, operations: [], ...o }).state;
   assert.equal(E.syncStatus({ configured: false, operations: ops }).label, 'Chưa kết nối');
   assert.equal(st({ syncing: true }), 'syncing');
+  assert.equal(st({ online: false, operations: [{}] }), 'offline');
+  assert.equal(E.syncStatus({ configured: true, online: false, operations: [{}, {}] }).label, 'Ngoại tuyến · 2 thay đổi lưu trên máy');
+  assert.equal(st({ online: false, operations: ops }), 'conflict', 'conflict stays visible offline');
+  assert.equal(E.syncStatus({ configured: false, online: false, operations: [] }).state, 'unconfigured');
   assert.equal(st({ operations: ops }), 'conflict');
   assert.equal(st({ lastError: 'x', operations: [{}] }), 'failed');
   assert.equal(st({ operations: [{}] }), 'pending');

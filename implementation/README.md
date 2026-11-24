@@ -27,6 +27,8 @@ Repository: haiprobmt/family-finance.
 8. AGENT_GUIDE.md — coding-agent rules.
 9. BASELINE_AUDIT.md — W0 audit: discrepancies, storage keys, write paths.
 10. RELEASE_REPORT.md — what was built, test evidence, gate status, cutover runbook.
+11. UI_DESIGN_SYSTEM.md, UI_COMPONENT_CATALOG.md, UI_IMPLEMENTATION_GUIDE.md — professional UI specification.
+12. UI_AUDIT.md (Phase 0) and UI_RELEASE_NOTES.md — UI modernisation audit, results, screenshots, rollback.
 
 ## Repository facts verified from main
 

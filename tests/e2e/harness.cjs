@@ -63,7 +63,7 @@ async function createWorld({ seed = true, now = null, files = null, migrate = fa
     async connect(device, { remember = false } = {}) {
       const { page } = device;
       await page.goto(base);
-      await page.waitForSelector('#settingsOverlay.open');
+      await page.waitForSelector('#settingsView.active');
       await page.fill('#endpointInput', ENDPOINT);
       await page.fill('#familyTokenInput', syn.TEST_TOKEN);
       if (remember) await page.check('#rememberConnection');

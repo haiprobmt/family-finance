@@ -1,0 +1,69 @@
+/* Family Finance 3.0 design tokens (implementation/UI_DESIGN_SYSTEM.md §2–4, §10).
+   All colours, type, spacing, radii and layout sizes come from here. */
+:root {
+  color-scheme: only light;
+  /* Brand (amber/orange): actions and accents only — never income/expense meaning. */
+  --color-brand-50: #FFF7ED;
+  --color-brand-100: #FFEDD5;
+  --color-brand-500: #F59E0B;
+  --color-brand-600: #EA8A00;
+  --color-brand-700: #C96D00;
+  /* Surfaces and text */
+  --color-bg: #F5F6F8;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F8FAFC;
+  --color-border: #E5E7EB;
+  --color-border-strong: #D0D5DD;
+  --color-text: #172033;
+  --color-text-muted: #667085;
+  --color-text-subtle: #98A2B3;
+  --color-on-brand: #1B1300;
+  /* Semantics */
+  --color-income: #159A65;
+  --color-income-bg: #EAF7F0;
+  --color-expense: #D94848;
+  --color-expense-bg: #FEF0F0;
+  --color-info: #2878D0;
+  --color-info-bg: #EFF6FF;
+  --color-warning: #B7791F;
+  --color-warning-bg: #FFF7E6;
+  --color-success: #16845B;
+  --color-success-bg: #EAF7F0;
+  --color-danger: #C93636;
+  --color-danger-bg: #FFF0F0;
+  --color-focus: #2563EB;
+  /* AA text variants (>= 4.8:1 on their tints and on white). The spec hues above fail 4.5:1 for
+     small text, so they are kept for fills, bars, dots and icons; text uses these. */
+  --color-income-text: #0E7A4F;
+  --color-expense-text: #C02E2E;
+  --color-success-text: #0E7A4F;
+  --color-warning-text: #8A5A12;
+  --color-info-text: #1F64B5;
+  --color-danger-text: #A82B2B;
+  --color-brand-text: #9A5200;
+  /* Typography */
+  --font-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --text-xs: 12px;  --leading-xs: 16px;
+  --text-sm: 13px;  --leading-sm: 20px;
+  --text-md: 14px;  --leading-md: 20px;
+  --text-lg: 16px;  --leading-lg: 24px;
+  --text-xl: 20px;  --leading-xl: 28px;
+  --text-2xl: 24px; --leading-2xl: 32px;
+  --text-3xl: 30px; --leading-3xl: 36px;
+  /* Spacing scale */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+  --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-16: 64px;
+  /* Shape and elevation (shadows only for overlays) */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-overlay: 0 8px 24px rgb(16 24 40 / 12%);
+  --focus-ring: 0 0 0 3px rgb(37 99 235 / 35%);
+  /* Layout */
+  --sidebar-width: 248px;
+  --rail-width: 72px;
+  --topbar-height: 56px;
+  --bottom-nav-height: 64px;
+  --content-max: 1440px;
+  --touch: 44px;
+}
