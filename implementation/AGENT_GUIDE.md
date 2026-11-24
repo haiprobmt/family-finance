@@ -1,0 +1,1 @@
+docs: add coding-agent guardrails and execution protocol

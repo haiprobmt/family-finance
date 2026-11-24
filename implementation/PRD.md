@@ -1,0 +1,1 @@
+docs: define Family Finance 3.0 product requirements

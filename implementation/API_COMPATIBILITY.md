@@ -1,0 +1,1 @@
+docs: document legacy API contract and compatibility gates

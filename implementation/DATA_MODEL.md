@@ -1,0 +1,1 @@
+docs: define additive finance data model and invariants
