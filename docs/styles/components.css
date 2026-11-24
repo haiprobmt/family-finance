@@ -82,7 +82,7 @@ button.status-pill:hover { background: var(--color-surface-muted); }
 .metric-grid-3 > :first-child { grid-column: 1 / -1; }
 @media (min-width: 640px) { .metric-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .metric-grid-3 > :first-child { grid-column: auto; } }
 @media (min-width: 1024px) { .metric-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.metric { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); text-align: left; color: var(--color-text); font: inherit; }
+.metric { container-type: inline-size; display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); text-align: left; color: var(--color-text); font: inherit; }
 .metric-action { cursor: pointer; }
 .metric-action:hover { border-color: var(--color-border-strong); background: var(--color-surface-muted); }
 .metric-label { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: 500; }
@@ -93,6 +93,12 @@ button.status-pill:hover { background: var(--color-surface-muted); }
 .metric-emphasis { background: var(--color-surface-muted); border-color: var(--color-border-strong); }
 .metric-emphasis .metric-value { font-size: var(--text-2xl); line-height: var(--leading-2xl); }
 @media (min-width: 1024px) { .metric-emphasis .metric-value { font-size: var(--text-3xl); line-height: var(--leading-3xl); } }
+
+/* Half-width metric cards on phones are ~125px wide: a full amount ("895.000.000 ₫") at the
+   default size overflows the card or drops "₫" onto its own line, so step the value down. */
+@container (max-width: 180px) {
+  .metric-value, .metric-emphasis .metric-value { font-size: var(--text-lg); line-height: var(--leading-lg); }
+}
 
 /* MoneyAmount */
 .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -151,7 +157,7 @@ button.status-pill:hover { background: var(--color-surface-muted); }
 
 /* SegmentedControl / chips */
 .segmented { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-muted); }
-.segmented button { min-height: 36px; padding: 0 var(--space-3); border: 0; border-radius: 6px; background: transparent; color: var(--color-text-muted); font-weight: 500; font-size: var(--text-sm); }
+.segmented button { min-height: 36px; padding: 0 var(--space-3); white-space: nowrap; border: 0; border-radius: 6px; background: transparent; color: var(--color-text-muted); font-weight: 500; font-size: var(--text-sm); }
 .segmented button:hover { color: var(--color-text); }
 .segmented button.active, .segmented button[aria-pressed="true"] { background: var(--color-surface); color: var(--color-text); font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-border-strong); }
 .chip-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -172,7 +178,11 @@ button.status-pill:hover { background: var(--color-surface-muted); }
 .filter-bar > .filter-fields { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .filter-bar > .filter-fields .field-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .filter-bar > .filter-fields select { width: auto; }
-@media (max-width: 639px) { .filter-bar > .filter-fields { display: none; } .filter-bar .search-input { flex-basis: 100%; } .filter-bar .segmented { flex: 1; } .filter-bar .segmented button { flex: 1; } }
+@media (max-width: 639px) { .filter-bar > .filter-fields { display: none; } .filter-bar .search-input { flex-basis: 100%; } .filter-bar .segmented { flex: 1; min-width: 0; } .filter-bar .segmented button { flex: 1; padding: 0 var(--space-2); } .filter-bar .filter-toggle { padding: 0 var(--space-3); } }
+/* Narrow phones (<400px): icon-only filter button so the three type tabs keep their full labels.
+   The label stays in the accessibility tree (visually hidden, not display:none). */
+@media (max-width: 399px) { .filter-bar .filter-toggle .btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
+@media (max-width: 359px) { .filter-bar .segmented button { padding: 0 var(--space-1); } }
 @media (min-width: 640px) { .filter-toggle { display: none; } }
 #txFilterSlot .filter-fields { display: grid; gap: var(--space-3); }
 
