@@ -20,7 +20,7 @@ const sw=read('sw.js');assert(sw.includes("event.request.method!=='GET'"));asser
 // 3.0: service-worker allowlist == every local asset referenced by the page, CSS and manifest; nothing else.
 const swFiles=vm.runInNewContext(sw.match(/const FILES=(\[[\s\S]*?\]);/)[1]);
 const needed=new Set(['./','index.html']);for(const m of html.matchAll(/(?:src|href)="([^"#]+)"/g))if(!m[1].includes('://'))needed.add(m[1]);
-for(const f of fs.readdirSync(docs).filter(f=>f.endsWith('.css')))for(const m of read(f).matchAll(/url\("?([^")]+)"?\)/g))if(!m[1].startsWith('data:'))needed.add(m[1]);
+for(const dir of ['','styles/'])if(fs.existsSync(path.join(docs,dir)))for(const f of fs.readdirSync(path.join(docs,dir)).filter(f=>f.endsWith('.css')))for(const m of read(dir+f).matchAll(/url\("?([^")]+)"?\)/g))if(!m[1].startsWith('data:'))needed.add(path.posix.normalize(dir+m[1]));
 for(const i of manifest.icons)needed.add(i.src);
 assert.deepEqual([...swFiles].sort(),[...needed].sort(),'sw.js FILES must match referenced assets');
 for(const f of swFiles)if(f!=='./')assert(fs.existsSync(path.join(docs,f)),f);

@@ -21,6 +21,9 @@ function fvBudgetUtil(month) {
   return { ...util, loanIncomplete };
 }
 
+const C = FFUI.c;
+const fvSmallBtn = (label, attrs, variant = 'secondary') => C.button({ label, variant, size: 'sm', attrs });
+
 // ---------- reminders ----------
 function fvReminderItems() {
   const today = fvToday();
@@ -28,56 +31,61 @@ function fvReminderItems() {
   return FD.insights.reminders({ planned, budget: fvBudgetUtil(today.slice(0, 7)), sync: syncState() });
 }
 function fvReminderMarkup(r) {
-  const actions = ref => `<span class="row-actions"><button type="button" class="filter" data-action="confirm-occ" data-occ-id="${escapeHtml(ref)}">Xác nhận</button><button type="button" class="filter" data-action="skip-occ" data-occ-id="${escapeHtml(ref)}">Bỏ qua</button></span>`;
-  if (r.kind === 'overdue' || r.kind === 'due') return `<li class="reminder ${r.kind}"><span><b>${r.kind === 'overdue' ? 'Quá hạn' : 'Sắp đến hạn'}</b> · ${escapeHtml(fvLabel(r.category))} · ${money(r.amount)} · ${escapeHtml(FD.money.dateLabel(r.date))}</span>${actions(r.ref)}</li>`;
-  if (r.kind === 'budget-warn') return `<li class="reminder warn"><span><b>${escapeHtml(fvLabel(r.category))}</b> đã dùng ${fvPct(r.ratio)} ngân sách tháng</span></li>`;
-  if (r.kind === 'budget-over') return `<li class="reminder over"><span><b>${escapeHtml(fvLabel(r.category))}</b> vượt ngân sách ${money(r.spent - (r.limit || 0))}</span></li>`;
-  if (r.kind === 'sync-failed') return `<li class="reminder over"><span><b>Đồng bộ lỗi</b> · ${r.pending} thay đổi vẫn an toàn trên máy, sẽ gửi lại</span></li>`;
-  if (r.kind === 'sync-conflict') return `<li class="reminder over"><span><b>Xung đột đồng bộ</b> · mở Lịch sử, Ngân sách hoặc Tài sản để chọn bản dùng</span></li>`;
+  const actions = ref => `<span class="row-actions">${fvSmallBtn('Xác nhận', { 'data-action': 'confirm-occ', 'data-occ-id': ref })}${fvSmallBtn('Bỏ qua', { 'data-action': 'skip-occ', 'data-occ-id': ref }, 'ghost')}</span>`;
+  if (r.kind === 'overdue' || r.kind === 'due') return `<li class="reminder ${r.kind}"><span>${C.badge(r.kind === 'overdue' ? 'Quá hạn' : 'Sắp đến hạn', r.kind === 'overdue' ? 'danger' : 'warning')} ${escapeHtml(fvLabel(r.category))} · ${C.money(r.amount, { semantic: r.type === 'Income' ? 'income' : 'expense' })} · ${escapeHtml(FD.money.dateLabel(r.date))}</span>${actions(r.ref)}</li>`;
+  if (r.kind === 'budget-warn') return `<li class="reminder warn"><span>${C.badge('Ngân sách', 'warning')} <b>${escapeHtml(fvLabel(r.category))}</b> đã dùng ${fvPct(r.ratio)} ngân sách tháng</span></li>`;
+  if (r.kind === 'budget-over') return `<li class="reminder over"><span>${C.badge('Vượt', 'danger')} <b>${escapeHtml(fvLabel(r.category))}</b> vượt ngân sách ${money(r.spent - (r.limit || 0))}</span></li>`;
+  if (r.kind === 'sync-failed') return `<li class="reminder over"><span>${C.badge('Đồng bộ lỗi', 'danger')} ${r.pending} thay đổi vẫn an toàn trên máy, sẽ gửi lại</span></li>`;
+  if (r.kind === 'sync-conflict') return `<li class="reminder over"><span>${C.badge('Xung đột', 'danger')} Mở Giao dịch, Ngân sách hoặc Tài sản để chọn bản dùng</span></li>`;
   return '';
 }
 function renderReminders() {
-  const items = fvReminderItems();
-  $('#homeReminders').hidden = !items.length;
-  $('#homeReminderList').innerHTML = items.slice(0, 3).map(fvReminderMarkup).join('');
-  $('#planReminderList').innerHTML = items.map(fvReminderMarkup).join('') || '<li class="muted">Không có nhắc việc.</li>';
+  const items = fvReminderItems(), none = '<li>' + C.emptyState({ title: 'Không có nhắc việc', text: 'Khoản đến hạn, cảnh báo ngân sách và lỗi đồng bộ sẽ hiện ở đây.', iconName: 'check' }) + '</li>';
+  $('#homeReminderList').innerHTML = items.slice(0, 4).map(fvReminderMarkup).join('') || none;
+  $('#planReminderList').innerHTML = items.map(fvReminderMarkup).join('') || none;
 }
 
-// ---------- dashboard 2.0 ----------
+// ---------- dashboard ----------
 function renderDashboardExtras() {
-  const mk = monthKey(activeMonth), t = FD.cashflow.monthTotals(transactions, mk);
-  $('#dashCashflow').innerHTML = [['Income', 'Thu nhập', t.income], ['Expense', 'Chi tiêu', t.expense], [null, 'Dòng tiền ròng', t.net], [null, 'Tỷ lệ tiết kiệm', null]].map(([type, label, value], i) =>
-    `<${type ? 'button type="button" data-action="drill" data-type="' + type + '" aria-haspopup="dialog"' : 'div'} class="kpi"><span>${label}</span><strong class="${value < 0 ? 'negative' : ''}">${i === 3 ? (t.savingsRate === null ? '<span class="unknown">Chưa có thu nhập</span>' : (hideAmounts ? '••' : Math.round(t.savingsRate * 100)) + '%') : money(value)}</strong>${type ? '<small>Xem giao dịch ›</small>' : ''}</${type ? 'button' : 'div'}>`).join('');
+  const mk = monthKey(activeMonth);
   const cutoff = mk >= fvToday().slice(0, 7) ? fvToday() : fvMonthEnd(mk);
   const nw = FD.netWorth.netWorth({ assets: fvAssets(), valuations: fvValuations(), schedule: LOAN_SCHEDULE, cutoff });
-  $('#dashNetWorth').innerHTML = `<p class="big">${fvAmountOrUnknown(nw.netWorth)}</p><dl class="kv"><div><dt>Tài sản</dt><dd>${fvAmountOrUnknown(nw.assets.total)}</dd></div><div><dt>Dư nợ</dt><dd>${fvAmountOrUnknown(nw.liabilities.total)}</dd></div></dl><p class="dash-note">Chốt ${escapeHtml(FD.money.dateLabel(cutoff))}${nw.gaps.length ? ' · ' + escapeHtml(nw.gaps[0]) : ''}</p>`;
+  $('#netWorthScope').textContent = 'Chốt ' + FD.money.dateLabel(cutoff) + (nw.gaps.length ? ' · ' + nw.gaps[0] : '');
+  $('#dashNetWorth').innerHTML =
+    C.metricCard({ label: 'Giá trị ròng', emphasis: true, state: nw.netWorth === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.netWorth, { compact: true, semantic: nw.netWorth < 0 ? 'expense' : null }), helperHtml: 'Tài sản − nợ cùng ngày chốt' }) +
+    C.metricCard({ label: 'Tổng tài sản', state: nw.assets.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.assets.total, { compact: true }), helperHtml: nw.assets.unknownCount ? `<span class="unknown">${nw.assets.unknownCount} tài sản chưa định giá</span>` : 'Theo tỷ lệ sở hữu' }) +
+    C.metricCard({ label: 'Tổng nợ', state: nw.liabilities.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.liabilities.total, { compact: true }), helperHtml: nw.liabilities.complete ? 'Dư nợ gốc theo lịch vay' : `<span class="unknown">Thiếu dư nợ ${escapeHtml(nw.liabilities.missing.join(', '))}</span>` });
   const u = fvBudgetUtil(mk), alerts = u.rows.filter(r => r.alert);
-  $('#dashBudgetAlerts').innerHTML = (alerts.length ? `<ul class="reminder-list">${alerts.map(r => `<li class="reminder ${r.alert === 'over' ? 'over' : 'warn'}"><span><b>${escapeHtml(fvLabel(r.id))}</b> ${r.alert === 'over' ? 'vượt ' + money(r.overBy) : 'đã dùng ' + fvPct(r.ratio)}</span></li>`).join('')}</ul>` : '<p class="dash-empty">Chưa danh mục nào chạm ngưỡng 80%.</p>') + (u.loanIncomplete ? '<p class="dash-note">Ngân sách trả nợ đang tạm tính vì thiếu lịch vay.</p>' : '');
-  const f = FD.forecast.forecastCashFlow({ transactions, rules: fvRules(), schedule: LOAN_SCHEDULE, rates: loanRates, fromMonth: FD.money.shiftMonth(fvToday().slice(0, 7), 1), months: 3, today: fvToday() });
-  $('#dashForecast').innerHTML = fvForecastTable(f, true);
-  $('#hubNetWorth').innerHTML = nw.netWorth === null ? 'Chưa đủ dữ liệu' : 'Ròng ' + money(nw.netWorth);
-  const soon = fvPlanned(fvToday(), FD.money.addDays(fvToday(), 7)).filter(o => o.status === 'due-soon').length;
-  $('#hubPlan').textContent = soon ? soon + ' khoản sắp đến hạn' : fvRules().length ? fvRules().length + ' khoản định kỳ' : 'Khoản định kỳ, dự báo';
+  $('#dashBudgetAlerts').innerHTML = (alerts.length ? `<ul class="reminder-list">${alerts.map(r => `<li class="reminder ${r.alert === 'over' ? 'over' : 'warn'}"><span>${C.badge(r.alert === 'over' ? 'Vượt' : '≥80%', r.alert === 'over' ? 'danger' : 'warning')} <b>${escapeHtml(fvLabel(r.id))}</b> ${r.alert === 'over' ? 'vượt ' + money(r.overBy) : 'đã dùng ' + fvPct(r.ratio)}</span></li>`).join('')}</ul>` : '<p class="text-sm muted">Chưa danh mục nào chạm ngưỡng 80%.</p>') + (u.loanIncomplete ? '<p class="text-sm unknown">Ngân sách trả nợ đang tạm tính vì thiếu lịch vay.</p>' : '');
 }
-function fvForecastTable(f, compact) {
-  const cell = v => fvAmountOrUnknown(v, 'thiếu dữ liệu');
-  const head = compact ? '<th>Tháng</th><th>Kế hoạch (thu − chi)</th><th>Trả nợ dự kiến</th><th>Ước tính ròng</th>' : '<th>Tháng</th><th>Thu kế hoạch</th><th>Chi kế hoạch</th><th>Trả nợ dự kiến</th><th>Thu ước tính</th><th>Chi ước tính</th><th>Ròng ước tính</th>';
-  const rows = f.rows.map(r => compact
-    ? `<tr><th scope="row">${fvMonthName(r.month)}</th><td>${money(r.planned.income - r.planned.expense)}</td><td>${cell(r.scheduledLoan.total)}${r.scheduledLoan.incomplete ? ' <small class="unknown">tạm tính</small>' : ''}</td><td class="${r.projectedNet < 0 ? 'negative' : ''}">${cell(r.projectedNet)}</td></tr>`
-    : `<tr><th scope="row">${fvMonthName(r.month)}</th><td>${money(r.planned.income)}</td><td>${money(r.planned.expense)}</td><td>${cell(r.scheduledLoan.total)}${r.scheduledLoan.incomplete ? ' <small class="unknown">tạm tính</small>' : ''}</td><td>${cell(r.estimated.income)}</td><td>${cell(r.estimated.expense)}</td><td class="${r.projectedNet < 0 ? 'negative' : ''}">${cell(r.projectedNet)}</td></tr>`).join('');
-  return `<div class="table-scroll" tabindex="0" role="region" aria-label="Bảng dự báo"><table class="data-table forecast">${'<thead><tr>' + head + '</tr></thead>'}<tbody>${rows}</tbody></table></div>${compact ? '' : '<ul class="assumptions">' + f.assumptions.map(a => `<li>${escapeHtml(a)}</li>`).join('') + '</ul>'}`;
+function fvForecastTable(f) {
+  const cell = v => C.money(v, { unknown: 'thiếu dữ liệu' });
+  const table = C.dataTable({ caption: 'Dự báo dòng tiền', columns: [
+    { key: 'month', label: 'Tháng', render: r => fvMonthName(r.month) },
+    { key: 'pi', label: 'Thu kế hoạch', num: true, render: r => C.money(r.planned.income) },
+    { key: 'pe', label: 'Chi kế hoạch', num: true, render: r => C.money(r.planned.expense) },
+    { key: 'loan', label: 'Trả nợ dự kiến', num: true, render: r => cell(r.scheduledLoan.total) + (r.scheduledLoan.incomplete ? '<small class="unknown">tạm tính</small>' : '') },
+    { key: 'ei', label: 'Thu ước tính', num: true, render: r => cell(r.estimated.income) },
+    { key: 'ee', label: 'Chi ước tính', num: true, render: r => cell(r.estimated.expense) },
+    { key: 'net', label: 'Ròng ước tính', num: true, render: r => C.money(r.projectedNet, { unknown: 'thiếu dữ liệu', semantic: r.projectedNet < 0 ? 'expense' : null }) }
+  ], rows: f.rows, cls: 'forecast' });
+  return table + '<ul class="assumptions">' + f.assumptions.map(a => `<li>${escapeHtml(a)}</li>`).join('') + '</ul>';
 }
 
 // ---------- budget insights ----------
 function renderBudgetInsights() {
   const mk = monthKey(activeMonth), u = fvBudgetUtil(mk);
-  const cmp = Object.fromEntries(FD.budget.compare(FD.cashflow.categoryTotals(transactions, mk), FD.cashflow.categoryTotals(transactions, FD.money.shiftMonth(mk, -1))).map(c => [c.id, c]));
+  const cmp = FD.budget.compare(FD.cashflow.categoryTotals(transactions, mk), FD.cashflow.categoryTotals(transactions, FD.money.shiftMonth(mk, -1))).filter(c => c.previous || c.current).slice(0, 6);
   const plannedOpen = fvPlanned(mk + '-01', fvMonthEnd(mk)).filter(o => o.type === 'Expense' && !['confirmed', 'skipped'].includes(o.status));
-  const rows = u.rows.filter(r => r.limit !== null || r.spent).sort((a, b) => (b.ratio || 0) - (a.ratio || 0)).map(r => {
-    const c = cmp[r.id], change = c ? c.change : 0;
-    return `<div class="budget-insight"><div><b>${escapeHtml(fvLabel(r.id))}</b><span>${money(r.spent)} / ${r.limit === null ? 'chưa đặt' : money(r.limit)}${r.id === 'loan-payment' && u.loanIncomplete ? ' (tạm tính)' : ''}</span></div><span class="cat-bar" data-level="${r.level}" ${r.limit ? '' : 'hidden'}><i style="width:${Math.max(0, Math.min(100, (r.ratio || 0) * 100))}%"></i></span><small>${r.alert === 'over' ? 'Vượt ' + money(r.overBy) : r.alert === 'warn' ? 'Đã dùng ' + fvPct(r.ratio) : r.ratio === null ? '' : 'Đã dùng ' + fvPct(r.ratio)}${c && c.previous ? ' · so với tháng trước ' + (change >= 0 ? '+' : '−') + money(Math.abs(change)) : ''}</small></div>`;
-  }).join('');
-  $('#budgetInsights').innerHTML = (rows || '<p class="dash-empty">Chưa có ngân sách hoặc khoản chi tháng này.</p>') + (plannedOpen.length ? `<p class="planned-note"><span class="kind-badge planned">Kế hoạch</span> ${plannedOpen.length} khoản định kỳ chưa xác nhận, tổng ${money(FD.money.sum(plannedOpen, o => o.amount))} — <b>không</b> tính vào "đã chi".</p>` : '');
+  const alerts = u.rows.filter(r => r.alert).sort((a, b) => (b.ratio || 0) - (a.ratio || 0));
+  const alertHtml = alerts.length ? `<ul class="reminder-list">${alerts.map(r => `<li class="reminder ${r.alert === 'over' ? 'over' : 'warn'}"><span><b>${escapeHtml(fvLabel(r.id))}</b> ${r.alert === 'over' ? 'vượt ' + money(r.overBy) : 'đã dùng ' + fvPct(r.ratio)}</span></li>`).join('')}</ul>` : '<p class="text-sm muted">Không có danh mục chạm ngưỡng.</p>';
+  const cmpHtml = cmp.length ? `<h3>So với tháng trước</h3>` + C.dataTable({ caption: 'So sánh chi tiêu với tháng trước', columns: [
+    { key: 'id', label: 'Danh mục', render: c => escapeHtml(fvLabel(c.id)) },
+    { key: 'current', label: 'Tháng này', num: true, render: c => C.money(c.current) },
+    { key: 'change', label: 'Thay đổi', num: true, render: c => C.money(c.change, { semantic: c.change > 0 ? 'expense' : c.change < 0 ? 'income' : null, sign: 'value' }) }
+  ], rows: cmp }) : '';
+  const plannedHtml = plannedOpen.length ? `<p class="text-sm">${C.badge('Kế hoạch', 'planned')} ${plannedOpen.length} khoản định kỳ chưa xác nhận, tổng ${money(FD.money.sum(plannedOpen, o => o.amount))} — <b>không</b> tính vào "đã chi".</p>` : '';
+  $('#budgetInsights').innerHTML = alertHtml + cmpHtml + plannedHtml;
 }
 
 // ---------- assets & loans ----------
@@ -87,34 +95,41 @@ function fvExtBanner() {
   else if (st.supported === false) notes.push('Apps Script đang chạy chưa có tính năng Tài sản/Định kỳ (cần triển khai Code.gs 3.0). Dữ liệu đang chỉ lưu trên máy này.');
   else if (FFExt.NAMES.some(n => extStore.collection(n).available === false)) notes.push('Google Sheets chưa được bật tính năng này (chủ sở hữu cần chạy migrationsApply). Dữ liệu đang chỉ lưu trên máy này.');
   if (st.lastError) notes.push('Lỗi đồng bộ gần nhất: ' + st.lastError);
-  for (const el of ['#extBanner']) { $(el).hidden = !notes.length; $(el).innerHTML = notes.map(n => `<p>${escapeHtml(n)}</p>`).join(''); }
+  $('#extBanner').hidden = !notes.length;
+  $('#extBanner').innerHTML = notes.length ? C.alert({ variant: st.lastError ? 'danger' : 'warning', title: 'Dữ liệu chưa đồng bộ đầy đủ', bodyHtml: notes.map(n => `<p>${escapeHtml(n)}</p>`).join('') }) : '';
 }
 function fvConflictBanner(selector, names, label) {
   const conflicted = names.filter(n => extStore.collection(n).remote);
   $(selector).hidden = !conflicted.length;
-  $(selector).innerHTML = conflicted.length ? `<p>${label} đã được sửa ở thiết bị khác.</p>` + conflicted.map(n => `<button type="button" class="filter" data-action="resolve" data-collection="${n}" data-choice="remote">Dùng bản trên Sheets</button><button type="button" class="filter" data-action="resolve" data-collection="${n}" data-choice="local">Ghi bản trên máy</button>`).join('') : '';
+  $(selector).innerHTML = conflicted.length ? C.alert({ variant: 'danger', role: 'alert', title: label + ' đã được sửa ở thiết bị khác', bodyHtml: 'Chọn bản muốn giữ; không có thay đổi nào bị xóa cho đến khi bạn chọn.', actionsHtml: conflicted.map(n => fvSmallBtn('Dùng bản trên Sheets', { 'data-action': 'resolve', 'data-collection': n, 'data-choice': 'remote' }) + fvSmallBtn('Ghi bản trên máy', { 'data-action': 'resolve', 'data-collection': n, 'data-choice': 'local' }, 'danger')).join('') }) : '';
 }
 function renderAssets() {
   fvExtBanner();
   if (!FV.cutoff) FV.cutoff = fvToday();
   $('#netWorthCutoff').value = FV.cutoff;
   const nw = FD.netWorth.netWorth({ assets: fvAssets(), valuations: fvValuations(), schedule: LOAN_SCHEDULE, cutoff: FV.cutoff });
-  $('#netWorthSummary').innerHTML = `<div class="kpi-grid"><div class="kpi"><span>Tài sản (theo tỷ lệ sở hữu)</span><strong>${fvAmountOrUnknown(nw.assets.total)}</strong>${nw.assets.unknownCount ? `<small>Đã biết: ${money(nw.assets.knownTotal)}</small>` : ''}</div><div class="kpi"><span>Dư nợ vay</span><strong>${fvAmountOrUnknown(nw.liabilities.total)}</strong>${!nw.liabilities.complete && nw.liabilities.knownTotal ? `<small>Đã biết: ${money(nw.liabilities.knownTotal)}</small>` : ''}</div><div class="kpi highlight"><span>Giá trị ròng</span><strong class="${nw.netWorth < 0 ? 'negative' : ''}">${fvAmountOrUnknown(nw.netWorth)}</strong></div></div>${nw.gaps.length ? '<ul class="gaps">' + nw.gaps.map(g => `<li>${escapeHtml(g)}</li>`).join('') + '</ul>' : ''}`;
+  $('#netWorthSummary').innerHTML = `<div class="metric-grid metric-grid-3">${C.metricCard({ label: 'Tài sản (theo tỷ lệ sở hữu)', state: nw.assets.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.assets.total), helperHtml: nw.assets.unknownCount ? 'Đã biết: ' + money(nw.assets.knownTotal) : 'Định giá gần nhất' })}${C.metricCard({ label: 'Dư nợ vay', state: nw.liabilities.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.liabilities.total), helperHtml: !nw.liabilities.complete && nw.liabilities.knownTotal ? 'Đã biết: ' + money(nw.liabilities.knownTotal) : 'Theo lịch vay tháng ' + fvMonthName(FV.cutoff.slice(0, 7)) })}${C.metricCard({ label: 'Giá trị ròng', emphasis: true, state: nw.netWorth === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.netWorth, { semantic: nw.netWorth < 0 ? 'expense' : null }), helperHtml: 'Tài sản − nợ' })}</div>${nw.gaps.length ? '<ul class="gaps">' + nw.gaps.map(g => `<li>${escapeHtml(g)}</li>`).join('') + '</ul>' : ''}`;
   fvConflictBanner('#assetConflict', ['assets', 'valuations'], 'Tài sản hoặc định giá');
   const items = new Map(nw.assets.items.map(i => [i.id, i]));
-  $('#assetList').innerHTML = fvAssets().map(a => {
-    const pos = items.get(a.id), v = pos && pos.valuation;
-    return `<article class="item"><div class="item-main"><b>${escapeHtml(a.name)}</b><span>${escapeHtml(FD.netWorth.ASSET_TYPE_LABELS[a.type] || a.type)} · sở hữu ${Math.round(a.ownershipShare * 1000) / 10}%${a.status !== 'active' ? ' · ' + (a.status === 'sold' ? 'đã bán' : 'đã đóng') : ''}</span></div><div class="item-value">${pos ? (pos.unknown ? '<span class="unknown">Chưa có định giá</span>' : money(pos.value)) : '<span class="muted">Không nắm giữ tại ngày chốt</span>'}${v ? `<small>${escapeHtml(FD.netWorth.SOURCE_LABELS[v.source] || v.source)} · ${escapeHtml(FD.money.dateLabel(v.date))}</small>` : ''}</div><div class="row-actions"><button type="button" class="filter" data-action="value-asset" data-id="${escapeHtml(a.id)}">Định giá</button><button type="button" class="filter" data-action="edit-asset" data-id="${escapeHtml(a.id)}">Sửa</button><button type="button" class="filter danger" data-action="delete-asset" data-id="${escapeHtml(a.id)}" aria-label="Xóa ${escapeHtml(a.name)}">Xóa</button></div></article>`;
-  }).join('') || '<p class="dash-empty">Chưa có tài sản. Thêm tài khoản, tiền mặt, nhà, xe hoặc đầu tư để tính giá trị ròng.</p>';
+  $('#assetList').innerHTML = C.dataTable({ caption: 'Danh sách tài sản', rows: fvAssets(), emptyHtml: C.emptyState({ title: 'Chưa có tài sản', text: 'Thêm tài khoản, tiền mặt, nhà, xe hoặc đầu tư để tính giá trị ròng.', iconName: 'assets', actionHtml: C.button({ label: 'Thêm tài sản', variant: 'primary', iconName: 'plus', attrs: { 'data-action': 'add-asset' } }) }), columns: [
+    { key: 'name', label: 'Tài sản', render: a => `${escapeHtml(a.name)}<small>${escapeHtml(FD.netWorth.ASSET_TYPE_LABELS[a.type] || a.type)}${a.status !== 'active' ? ' · ' + (a.status === 'sold' ? 'đã bán' : 'đã đóng') : ''}</small>` },
+    { key: 'share', label: 'Sở hữu', num: true, render: a => Math.round(a.ownershipShare * 1000) / 10 + '%' },
+    { key: 'value', label: 'Giá trị', num: true, render: a => { const p = items.get(a.id); return p ? (p.unknown ? '<span class="unknown">Chưa có định giá</span>' : C.money(p.value)) : '<span class="muted">Không nắm giữ tại ngày chốt</span>'; } },
+    { key: 'val', label: 'Định giá', render: a => { const v = items.get(a.id)?.valuation; return v ? `${escapeHtml(FD.money.dateLabel(v.date))}<small>${escapeHtml(FD.netWorth.SOURCE_LABELS[v.source] || v.source)}</small>` : '—'; } },
+    { key: 'actions', label: 'Thao tác', render: a => `<span class="row-actions">${fvSmallBtn('Định giá', { 'data-action': 'value-asset', 'data-id': a.id })}${fvSmallBtn('Sửa', { 'data-action': 'edit-asset', 'data-id': a.id }, 'ghost')}${C.button({ label: 'Xóa', variant: 'ghost', size: 'sm', cls: 'danger-text', attrs: { 'data-action': 'delete-asset', 'data-id': a.id, 'aria-label': 'Xóa ' + a.name } })}</span>` }
+  ] });
+  const l = FD.loan.liabilityAt(LOAN_SCHEDULE, FV.cutoff.slice(0, 7));
+  $('#liabilitySummary').innerHTML = C.kv(l.items.map(i => [i.bank, i.missing ? '<span class="unknown">Thiếu dữ liệu</span>' : C.money(i.principal)]).concat([['Tổng nợ', l.complete ? `<b>${C.money(l.total)}</b>` : '<span class="unknown">Chưa đủ dữ liệu</span>']]));
   renderLoanPosition();
   fvSimulatorOptions();
 }
 function renderLoanPosition() {
   const month = FV.cutoff.slice(0, 7), s = homeLoanSummary(month), l = FD.loan.liabilityAt(LOAN_SCHEDULE, month);
-  const rows = s.rows.map(r => { const b = FD.loan.paymentBreakdown(r), liab = l.items.find(i => i.bank === r.bank); return `<tr><th scope="row">${escapeHtml(r.bank)}</th><td>${liab && !liab.missing ? money(liab.principal) : '<span class="unknown">Thiếu</span>'}</td><td>${b.missing ? '—' : money(b.interest)}</td><td>${b.missing ? '—' : b.principal === null ? '<span class="muted" title="Lịch vay không tách phần gốc">—</span>' : money(b.principal)}</td><td>${b.missing ? '<span class="unknown">Thiếu</span>' : money(b.payment)}</td></tr>`; }).join('');
-  $('#loanPosition').innerHTML = `<p class="dash-note">Tháng ${fvMonthName(month)}. Lãi là chi phí; gốc làm giảm dư nợ (không tính là chi tiêu trong giá trị ròng).</p><div class="table-scroll" tabindex="0" role="region" aria-label="Khoản vay theo ngân hàng"><table class="data-table"><thead><tr><th>Ngân hàng</th><th>Dư nợ</th><th>Lãi</th><th>Gốc</th><th>Phải trả</th></tr></thead><tbody>${rows}<tr><th scope="row">Trả thêm</th><td></td><td></td><td></td><td>${money(LOAN_SCHEDULE.extraDebt || 0)}</td></tr></tbody></table></div><p><b>Tổng dự kiến: ${money(s.total)}</b>${s.missing ? ` <span class="unknown">(tạm tính — ${escapeHtml(s.missingNote)})</span>` : ''}</p>`;
+  const coverage = bank => { const months = LOAN_SCHEDULE.records.filter(r => r.bank === bank).map(r => r.month).sort(); return months.length ? fvMonthName(months[months.length - 1]) : 'Chưa có'; };
+  const rate = v => new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 3 }).format(v);
+  const items = s.rows.map(r => { const b = FD.loan.paymentBreakdown(r), liab = l.items.find(i => i.bank === r.bank); return { bank: r.bank, badgeHtml: r.missing ? C.badge('Thiếu dữ liệu', 'warning') : C.badge(r.rateType || 'Theo file', r.rateType === 'Dự đoán' ? 'forecast' : 'neutral'), outstanding: liab && !liab.missing ? liab.principal : null, rateText: r.missing ? '—' : rate(r.rate), interest: b.missing ? null : b.interest, principal: b.missing ? undefined : b.principal, payment: b.missing ? null : b.payment, coverage: coverage(r.bank) }; });
+  $('#loanPosition').innerHTML = `<p class="text-sm muted">Tháng ${fvMonthName(month)} (theo ngày chốt ở Tài sản &amp; Nợ).</p>` + C.loanSummary(items) + C.kv([['Trả thêm hằng tháng (FinanceSettings)', C.money(LOAN_SCHEDULE.extraDebt || 0)], ['Tổng dự kiến tháng', `<b>${C.money(s.total)}</b>` + (s.missing ? ` <span class="unknown">(tạm tính — ${escapeHtml(s.missingNote)})</span>` : '')]]);
 }
-// Per bank: latest schedule row on/before the cut-off month (earliest row if none yet).
 function fvLatestRecords() {
   const month = FV.cutoff.slice(0, 7), latest = {};
   for (const r of [...LOAN_SCHEDULE.records].sort((a, b) => a.month.localeCompare(b.month))) if (!latest[r.bank] || r.month <= month) latest[r.bank] = r;
@@ -141,9 +156,9 @@ function fvRunSimulation() {
   const method = $('#simMethod').value;
   const input = { principal: parseDigits($('#simPrincipal').value), annualRate: Number($('#simRate').value) / 100, startMonth: $('#simStart').value, method, monthlyPrincipal: parseDigits($('#simMonthlyPrincipal').value), termMonths: Math.trunc(Number($('#simTerm').value)), extraMonthly: parseDigits($('#simExtra').value), prepaymentFeeRate: Number($('#simFee').value || 0) / 100 };
   const r = FD.insights.repaymentSimulation(input);
-  if (r.error) { $('#simulatorResult').innerHTML = `<p class="unknown">Thiếu hoặc sai: ${escapeHtml(r.errors.join(', '))}</p>`; return; }
+  if (r.error) { $('#simulatorResult').innerHTML = C.alert({ variant: 'warning', title: 'Thiếu hoặc sai thông tin', bodyHtml: escapeHtml(r.errors.join(', ')) }); return; }
   const d = r.data, c = d.comparison;
-  $('#simulatorResult').innerHTML = `<div class="kpi-grid"><div class="kpi"><span>Không trả thêm</span><strong>${d.baseline.months} tháng</strong><small>Lãi ${money(d.baseline.interest)} · xong ${d.baseline.payoffMonth ? fvMonthName(d.baseline.payoffMonth) : '—'}</small></div><div class="kpi"><span>Có trả thêm</span><strong>${d.withExtra.months} tháng</strong><small>Lãi ${money(d.withExtra.interest)} · phí ${money(d.withExtra.fees)}</small></div><div class="kpi highlight"><span>Tiết kiệm ròng (ước tính)</span><strong>${money(c.netSaving)}</strong><small>Sớm ${c.monthsSaved} tháng</small></div></div><p class="dash-note">Giả định:</p><ul class="assumptions">${d.assumptions.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul>`;
+  $('#simulatorResult').innerHTML = `<div class="metric-grid metric-grid-3">${C.metricCard({ label: 'Không trả thêm', valueHtml: d.baseline.months + ' tháng', helperHtml: 'Lãi ' + money(d.baseline.interest) + ' · xong ' + (d.baseline.payoffMonth ? fvMonthName(d.baseline.payoffMonth) : '—') })}${C.metricCard({ label: 'Có trả thêm', valueHtml: d.withExtra.months + ' tháng', helperHtml: 'Lãi ' + money(d.withExtra.interest) + ' · phí ' + money(d.withExtra.fees) })}${C.metricCard({ label: 'Tiết kiệm ròng (ước tính)', emphasis: true, valueHtml: C.money(c.netSaving), helperHtml: 'Sớm ' + c.monthsSaved + ' tháng', badgeHtml: C.badge('Mô phỏng', 'forecast') })}</div><p class="text-sm muted">Giả định:</p><ul class="assumptions">${d.assumptions.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul>`;
 }
 
 // ---------- plan: calendar, rules, forecast ----------
@@ -154,14 +169,14 @@ function renderPlan() {
   const byDate = new Map();
   for (const o of occ) { if (!byDate.has(o.dueDate)) byDate.set(o.dueDate, []); byDate.get(o.dueDate).push({ occ: o }); }
   for (const l of loans) { const d = l.date < today ? today : l.date; if (!byDate.has(d)) byDate.set(d, []); byDate.get(d).push({ loan: l }); }
-  const statusLabel = { confirmed: 'Đã ghi', skipped: 'Bỏ qua', overdue: 'Quá hạn', 'due-soon': 'Sắp đến', pending: 'Chờ' };
+  const statusBadge = { confirmed: ['Đã ghi', 'success'], skipped: ['Bỏ qua', 'neutral'], overdue: ['Quá hạn', 'danger'], 'due-soon': ['Sắp đến', 'warning'], pending: ['Chờ', 'neutral'] };
   $('#financialCalendar').innerHTML = [...byDate.keys()].sort().map(d => `<section class="cal-day"><h3>${escapeHtml(FD.money.dateLabel(d))}</h3>${byDate.get(d).map(x => x.occ
-    ? `<div class="cal-item ${x.occ.status}"><span><b>${escapeHtml(x.occ.note || fvLabel(x.occ.category))}</b><small>${x.occ.type === 'Income' ? 'Thu' : 'Chi'} · ${escapeHtml(fvLabel(x.occ.category))} · <span class="status">${statusLabel[x.occ.status]}</span></small></span><strong>${x.occ.type === 'Income' ? '+' : '−'}${money(x.occ.amount)}</strong>${['pending', 'due-soon', 'overdue'].includes(x.occ.status) ? `<span class="row-actions"><button type="button" class="filter" data-action="confirm-occ" data-occ-id="${escapeHtml(x.occ.id)}">Xác nhận</button><button type="button" class="filter" data-action="skip-occ" data-occ-id="${escapeHtml(x.occ.id)}">Bỏ qua</button></span>` : ''}</div>`
-    : `<div class="cal-item scheduled"><span><b>Lịch trả nợ ${fvMonthName(x.loan.month)}</b><small><span class="kind-badge scheduled">Lịch dự kiến</span>${x.loan.loan.missing ? ' tạm tính — ' + escapeHtml(x.loan.loan.missingNote) : ''}</small></span><strong>−${money(x.loan.loan.total)}</strong></div>`).join('')}</section>`).join('') || '<p class="dash-empty">Không có khoản nào trong 60 ngày tới.</p>';
+    ? `<div class="cal-item ${x.occ.status}"><span><b>${escapeHtml(x.occ.note || fvLabel(x.occ.category))}</b><small>${x.occ.type === 'Income' ? 'Thu' : 'Chi'} · ${escapeHtml(fvLabel(x.occ.category))} · ${C.badge(...statusBadge[x.occ.status])}</small></span>${C.money(x.occ.amount, { semantic: x.occ.type === 'Income' ? 'income' : 'expense', sign: true })}${['pending', 'due-soon', 'overdue'].includes(x.occ.status) ? `<span class="row-actions">${fvSmallBtn('Xác nhận', { 'data-action': 'confirm-occ', 'data-occ-id': x.occ.id })}${fvSmallBtn('Bỏ qua', { 'data-action': 'skip-occ', 'data-occ-id': x.occ.id }, 'ghost')}</span>` : ''}</div>`
+    : `<div class="cal-item scheduled"><span><b>Lịch trả nợ ${fvMonthName(x.loan.month)}</b><small>${C.badge('Lịch dự kiến', 'scheduled')}${x.loan.loan.missing ? ' tạm tính — ' + escapeHtml(x.loan.loan.missingNote) : ''}</small></span>${C.money(x.loan.loan.total, { semantic: 'expense', sign: true })}</div>`).join('')}</section>`).join('') || C.emptyState({ title: 'Không có khoản nào trong 60 ngày tới', iconName: 'calendar' });
   fvConflictBanner('#ruleConflict', ['recurring'], 'Khoản định kỳ');
-  $('#ruleList').innerHTML = fvRules().map(r => { const next = FD.recurring.nextOccurrence(r, today); return `<article class="item ${r.status}"><div class="item-main"><b>${escapeHtml(r.note || fvLabel(r.category))}</b><span>${r.type === 'Income' ? 'Thu' : 'Chi'} · ${escapeHtml(fvLabel(r.category))} · ${escapeHtml(FD.recurring.CADENCE_LABELS[r.cadence])}${r.interval > 1 ? ' (mỗi ' + r.interval + ')' : ''}${r.status === 'paused' ? ' · tạm dừng' : ''}</span></div><div class="item-value">${money(r.amount)}<small>${next ? 'Kế tiếp ' + escapeHtml(FD.money.dateLabel(next.dueDate)) : 'Không có kỳ tới'}</small></div><div class="row-actions"><button type="button" class="filter" data-action="edit-rule" data-id="${escapeHtml(r.id)}">Sửa</button><button type="button" class="filter" data-action="toggle-rule" data-id="${escapeHtml(r.id)}">${r.status === 'paused' ? 'Tiếp tục' : 'Tạm dừng'}</button><button type="button" class="filter danger" data-action="delete-rule" data-id="${escapeHtml(r.id)}">Xóa</button></div></article>`; }).join('') || '<p class="dash-empty">Chưa có khoản định kỳ. Thêm tiền nhà, học phí, lương… để thấy lịch và dự báo.</p>';
+  $('#ruleList').innerHTML = fvRules().map(r => { const next = FD.recurring.nextOccurrence(r, today); return `<article class="item ${r.status}"><div class="item-main"><b>${escapeHtml(r.note || fvLabel(r.category))}</b><span>${r.type === 'Income' ? 'Thu' : 'Chi'} · ${escapeHtml(fvLabel(r.category))} · ${escapeHtml(FD.recurring.CADENCE_LABELS[r.cadence])}${r.interval > 1 ? ' (mỗi ' + r.interval + ')' : ''}${r.status === 'paused' ? ' · tạm dừng' : ''}</span></div><div class="item-value">${C.money(r.amount, { semantic: r.type === 'Income' ? 'income' : 'expense' })}<small>${next ? 'Kế tiếp ' + escapeHtml(FD.money.dateLabel(next.dueDate)) : 'Không có kỳ tới'}</small></div><div class="row-actions">${fvSmallBtn('Sửa', { 'data-action': 'edit-rule', 'data-id': r.id })}${fvSmallBtn(r.status === 'paused' ? 'Tiếp tục' : 'Tạm dừng', { 'data-action': 'toggle-rule', 'data-id': r.id }, 'ghost')}${C.button({ label: 'Xóa', variant: 'ghost', size: 'sm', cls: 'danger-text', attrs: { 'data-action': 'delete-rule', 'data-id': r.id } })}</div></article>`; }).join('') || C.emptyState({ title: 'Chưa có khoản định kỳ', text: 'Thêm tiền nhà, học phí, lương… để thấy lịch và dự báo.', iconName: 'calendar' });
   const f = FD.forecast.forecastCashFlow({ transactions, rules: fvRules(), schedule: LOAN_SCHEDULE, rates: loanRates, fromMonth: FD.money.shiftMonth(today.slice(0, 7), 1), months: FV.forecastMonths, today });
-  $('#forecastTable').innerHTML = `<p class="dash-note"><span class="kind-badge forecast">Dự báo</span> Tách riêng kế hoạch (quy tắc định kỳ), lịch vay và ước tính từ lịch sử. Không phải số thực tế.</p>` + fvForecastTable(f, false);
+  $('#forecastTable').innerHTML = fvForecastTable(f);
 }
 
 // ---------- settings diagnostics ----------
@@ -174,7 +189,7 @@ function renderSyncDiagnostics() {
 function renderFinanceViews() {
   try { renderReminders(); renderDashboardExtras(); renderBudgetInsights(); renderAssets(); renderPlan(); renderSyncDiagnostics(); }
   catch (error) { console.error('finance views', error); }
-  const btn = $('#privacyBtn'); btn.setAttribute('aria-pressed', String(hideAmounts)); btn.setAttribute('aria-label', hideAmounts ? 'Hiện số tiền' : 'Ẩn số tiền'); btn.querySelector('span').textContent = hideAmounts ? '◎' : '◉';
+  const btn = $('#privacyBtn'); btn.setAttribute('aria-pressed', String(hideAmounts)); btn.setAttribute('aria-label', hideAmounts ? 'Hiện số tiền' : 'Ẩn số tiền'); btn.innerHTML = FFUI.icon(hideAmounts ? 'eyeOff' : 'eye');
   document.body.classList.toggle('amounts-hidden', hideAmounts);
 }
 
@@ -204,14 +219,16 @@ function fvDrill(type) {
   $('#categoryDetailTitle').textContent = type === 'Income' ? 'Thu nhập' : 'Chi tiêu';
   $('#categoryDetailScope').textContent = fvMonthName(mk) + ' · ' + rows.length + ' giao dịch nguồn';
   $('#categoryDetailTotal').textContent = money(FD.money.sum(rows, r => r.amount));
-  $('#categoryDetailBody').innerHTML = rows.map(t => `<tr data-tx-id="${escapeHtml(t.id)}" tabindex="0" aria-label="Xem chi tiết giao dịch"><td>${escapeHtml(formatDate(t.date))}</td><td><b>${escapeHtml(t.note || catInfo(t.category, t.type)[1])}</b><span>${escapeHtml(catInfo(t.category, t.type)[1])} · ${escapeHtml(t.person || 'Gia đình')}</span></td><td class="detail-money"><b>${money(t.amount)}</b><span>${t.synced ? 'Đã đồng bộ' : 'Trên thiết bị'}</span></td></tr>`).join('');
+  $('#categoryDetailBody').innerHTML = rows.map(t => detailRow(t)).join('');
   $('#categoryDetailEmpty').hidden = !!rows.length; $('#categoryDetailTable').hidden = !rows.length;
-  openOverlay('#categoryDetailOverlay'); $('#closeCategoryDetail').focus();
+  openOverlay('#categoryDetailOverlay', document.activeElement);
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-action]'); if (!b) return;
   const id = b.dataset.id, action = b.dataset.action;
   if (action === 'confirm-occ') fvConfirmOccurrence(b.dataset.occId);
+  else if (action === 'sync-now') { retryUnsynced().then(() => syncWithSheet(false)); }
+  else if (action === 'add-asset') fvOpenAsset(null);
   else if (action === 'skip-occ') fvSkipOccurrence(b.dataset.occId);
   else if (action === 'drill') fvDrill(b.dataset.type);
   else if (action === 'resolve') { if (b.dataset.choice === 'local' && !confirm('Ghi bản trên máy này thay cho bản trên Google Sheets?')) return; extStore.resolve(b.dataset.collection, b.dataset.choice); if (b.dataset.choice === 'local') fvAfterExtEdit('Đã chọn bản trên máy'); }
@@ -333,7 +350,7 @@ function fvToolFallback(t) {
 }
 async function askAssistantTool(tool, question) {
   if (assistantRequestId) return;
-  if (!endpoint()) { closeOverlay('#assistantOverlay'); $('#settingsBtn').click(); return; }
+  if (!endpoint()) { openSettings(); return; }
   assistantRequestId = Date.now().toString(36); addChatBubble(question, 'user'); addChatBubble('Đang tính từ dữ liệu gia đình…', 'ai loading', 'assistantLoading'); $('#askAssistantBtn').disabled = true;
   try {
     const r = await nativeRequest({ action: 'assistant_tool', tool, month: monthKey(activeMonth), question, context: JSON.stringify({ rates: loanRates, months: 6 }) });

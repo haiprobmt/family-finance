@@ -82,7 +82,8 @@ test('privacy mode hides amounts everywhere and persists across reload', async (
     await a.page.click('#privacyBtn');
     for (const sel of ['#expenseTotal', '#incomeTotal']) assert.match(await a.page.textContent(sel), /•/);
     assert.equal(await a.page.getAttribute('#privacyBtn', 'aria-pressed'), 'true');
-    await go(a, 'dashboard'); assert.ok(!/\d{1,3}(\.\d{3})+ ₫/.test(await a.page.textContent('#dashCashflow')));
+    await go(a, 'home'); assert.ok(!/\d{1,3}(\.\d{3})+ ₫/.test(await a.page.textContent('#dashCashflow')));
+    assert.ok(!/\d{1,3}(\.\d{3})+ ₫/.test(await a.page.textContent('#homeView')), 'no full amounts anywhere on the dashboard');
     await a.page.reload(); await a.page.waitForSelector('#expenseTotal');
     assert.match(await a.page.textContent('#expenseTotal'), /•/);
   } finally { await w.close(); }
@@ -109,12 +110,12 @@ test('dashboard KPI drill-through lists exactly the source transactions; simulat
   const w = await createWorld({ now: NOW });
   try {
     const a = await w.device('A'); await w.connect(a);
-    await go(a, 'dashboard'); await a.page.click('[data-action="drill"][data-type="Expense"]');
+    await go(a, 'home'); await a.page.click('[data-action="drill"][data-type="Expense"]');
     await a.page.waitForSelector('#categoryDetailOverlay.open');
     const expected = (await w.local(a, 'family_finance_transactions_v1')).filter(t => t.type === 'Expense' && t.date.startsWith('2026-11')).length;
     assert.equal(await a.page.locator('#categoryDetailBody tr').count(), expected);
     await a.page.keyboard.press('Escape');
-    await go(a, 'assets'); await a.page.fill('#simExtra', '5000000'); await a.page.click('#simulatorForm .submit-entry');
+    await go(a, 'loans'); await a.page.fill('#simExtra', '5000000'); await a.page.click('#simulatorForm .submit-entry');
     const out = await a.page.textContent('#simulatorResult');
     assert.match(out, /Tiết kiệm ròng \(ước tính\)/); assert.match(out, /Lãi suất cố định 7\.500%\/năm/);
   } finally { await w.close(); }
@@ -159,12 +160,12 @@ test('service worker caches only allowlisted static files and serves the shell o
     await d.page.goto(w.base);
     await d.page.evaluate(() => navigator.serviceWorker.ready);
     const cached = await d.page.evaluate(async () => { const out = []; for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) out.push(r.url); return { keys: await caches.keys(), urls: out }; });
-    assert.deepEqual(cached.keys, ['family-finance-pages-v3']);
+    assert.deepEqual(cached.keys, ['family-finance-pages-v4']);
     assert.ok(cached.urls.length >= 30);
     assert.ok(cached.urls.every(u => u.startsWith(w.base)), 'no third-party or API responses cached');
     await d.context.setOffline(true);
     await d.page.reload();
-    assert.equal(await d.page.title(), 'Chi Tiêu Gia Đình');
+    assert.match(await d.page.title(), /Chi Tiêu Gia Đình/);
     assert.ok(await d.page.evaluate(() => typeof FFDomain.loan.loanSummary === 'function'), 'domain scripts served from cache');
   } finally { await w.close(); }
 });
@@ -175,7 +176,7 @@ test('responsive layout: no horizontal page overflow on phone and desktop; contr
     for (const viewport of [{ width: 360, height: 780 }, { width: 1280, height: 900 }]) {
       const d = await w.device('V' + viewport.width, { viewport }); await w.connect(d);
       await d.page.keyboard.press('Escape');
-      for (const view of ['home', 'history', 'dashboard', 'budget', 'assets', 'plan']) {
+      for (const view of ['home', 'history', 'budget', 'assets', 'loans', 'plan', 'ai', 'reports', 'settings']) {
         await go(d, view); await d.page.waitForTimeout(50);
         const overflow = await d.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         assert.ok(overflow <= 1, `${view} @${viewport.width}px overflows by ${overflow}px`);
