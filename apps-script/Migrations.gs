@@ -8,7 +8,8 @@ const MIGRATION_LOG='Migrations';
 const MIGRATION_LOG_HEADERS=['MigrationId','AppliedAt','Result','Counts'];
 const MIGRATIONS=[
   {id:'2026-11-01-assets',description:'Thêm sheet Assets và AssetValuations',collections:['assets','valuations']},
-  {id:'2026-11-02-recurring',description:'Thêm sheet RecurringRules',collections:['recurring']}
+  {id:'2026-11-02-recurring',description:'Thêm sheet RecurringRules',collections:['recurring']},
+  {id:'2026-11-25-debts',description:'Thêm sheet Debts (khoản nợ nhập tay)',collections:['debts']}
 ];
 function appliedMigrations(){
   const sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(MIGRATION_LOG);if(!sheet)return [];

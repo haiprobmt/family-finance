@@ -1,4 +1,4 @@
-// Additive 3.0 collections: assets, asset valuations and recurring rules.
+// Additive 3.0 collections: assets, asset valuations, recurring rules and debts.
 // New actions only (ext_snapshot, ext_save); APK 2.3.0 never calls them and is unaffected.
 // Sheets exist only after the owner runs migrationsApply() (Migrations.gs). Each collection
 // is saved whole with a SHA-256 revision, mirroring the budget conflict model:
@@ -20,7 +20,13 @@ const EXT_COLLECTIONS={
     fields:['id','type','amount','category','person','note','cadence','interval','startDate','endDate','status','skipped'],
     dates:['startDate','endDate'],optionalNumbers:[],numbers:['amount','interval'],lists:['skipped'],
     text:{id:100,type:10,category:30,person:60,note:200,cadence:10,status:10},defaults:{person:'Gia đình',note:'',endDate:'',status:'active',skipped:[],interval:1},
-    validate:v=>FFDomain.recurring.validateRule(v)}
+    validate:v=>FFDomain.recurring.validateRule(v)},
+  debts:{sheet:'Debts',max:200,
+    fields:['id','type','name','currency','balance','balanceDate','startDate','status','paidDate','notes'],
+    dates:['balanceDate','startDate','paidDate'],optionalNumbers:[],numbers:['balance'],lists:[],
+    text:{id:100,type:20,name:120,currency:3,status:10,notes:500},
+    defaults:{currency:'VND',startDate:'',status:'active',paidDate:'',notes:''},
+    validate:v=>FFDomain.netWorth.validateDebt(v)}
 };
 function extHeaders(def){return def.fields.concat(['UpdatedAt']);}
 // Canonical form used for validation, storage and revision hashing.

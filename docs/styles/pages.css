@@ -87,3 +87,8 @@
 .transaction-detail-sheet dl div { display: flex; justify-content: space-between; gap: var(--space-3); padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-border); }
 .transaction-detail-sheet dt { color: var(--color-text-muted); }
 .transaction-detail-sheet dd { margin: 0; text-align: right; font-weight: 500; overflow-wrap: anywhere; }
+
+/* Nợ phải trả: bank loans (from the Loans sheet) and debts entered by hand */
+.list-heading { margin: var(--space-4) 0 var(--space-2); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: 600; color: var(--color-text-muted); }
+.list-heading:first-child { margin-top: 0; }
+.liability-total { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }

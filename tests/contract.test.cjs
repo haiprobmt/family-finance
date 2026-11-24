@@ -73,7 +73,7 @@ test('deployable bundle: 3.0 extras work (migrations, ext collections, assistant
   const ss = syn.seedSpreadsheet(new FakeSpreadsheet());
   const rt = loadBackend(['apps-script/dist/Code.gs'], { spreadsheet: ss, properties: { FAMILY_ACCESS_TOKEN: syn.TEST_TOKEN, DEEPSEEK_API_KEY: 'k' }, fetchHandler: () => ({ status: 200, body: { choices: [{ message: { content: 'ok' } }] } }), now: '2026-11-24T03:00:00Z' });
   assert.equal(JSON.parse(rt.call('migrationsDryRun')).dryRun, true);
-  assert.deepEqual(JSON.parse(rt.call('migrationsApply')).results.map(r => r.status), ['applied-now', 'applied-now']);
+  assert.deepEqual(JSON.parse(rt.call('migrationsApply')).results.map(r => r.status), ['applied-now', 'applied-now', 'applied-now']);
   const snap = rt.post(scenario.auth({ action: 'ext_snapshot' }));
   assert.equal(snap.collections.assets.available, true);
   const saved = rt.post(scenario.auth({ action: 'ext_save', collection: 'recurring', values: JSON.stringify([{ id: 'r1', type: 'Expense', amount: 1000, category: 'home', person: 'Gia đình', note: '', cadence: 'monthly', interval: 1, startDate: '2026-12-01', endDate: '', status: 'active', skipped: [] }]), revision: snap.collections.recurring.revision }));

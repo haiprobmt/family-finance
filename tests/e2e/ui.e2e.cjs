@@ -168,6 +168,9 @@ test('accessibility: axe-core WCAG 2.2 AA scan of every screen and dialog (deskt
       const d = await w.device('A' + viewport.width, { viewport }); await w.connect(d); await seedExtras(w, d);
       await d.page.evaluate(AXE); // via DevTools protocol: the app's CSP (script-src 'self') stays untouched
       const scan = async label => {
+        // A toast that starts fading out during axe.run is measured at partial opacity (false
+        // color-contrast failure on #toast); wait until it has gone, then for every animation.
+        await d.page.waitForFunction(() => !document.querySelector('#toast').classList.contains('show'), null, { timeout: 5000 });
         await d.page.evaluate(() => Promise.all(document.getAnimations().map(a => a.finished.catch(() => null))));
         const res = await d.page.evaluate(async () => (await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] }, resultTypes: ['violations'] })).violations.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.slice(0, 3).map(n => n.target.join(' ')) })));
         assert.deepEqual(res, [], `${label} @${viewport.width}px`);

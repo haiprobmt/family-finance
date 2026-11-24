@@ -25,7 +25,7 @@ function bundleBody(domain) {
     '// Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy.',
     '// Editing the EXISTING deployment keeps the same /exec URL, so APK 2.3.0 and the web app keep syncing.',
     '// Keep the Script Properties FAMILY_ACCESS_TOKEN and DEEPSEEK_API_KEY. Never paste them here.',
-    '// Optional 3.0 features (assets, recurring): run migrationsDryRun, then migrationsApply, from the editor.',
+    '// Optional 3.0 features (assets, recurring, debts): run migrationsDryRun, then migrationsApply, from the editor.',
     ''
   ].join('\n');
   return header + backend.map(f => `\n// ==== ${f} ====\n` + (f === 'Domain.gs' ? domain : fs.readFileSync(path.join(root, 'apps-script', f), 'utf8'))).join('');

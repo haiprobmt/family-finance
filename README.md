@@ -21,7 +21,7 @@ The published folder is `docs/`; `apps-script/` is backend source, not a hosted 
    separate files in `apps-script/`; never use both.) Ideally try it on a copy of the spreadsheet first.
    Keep existing `FAMILY_ACCESS_TOKEN` and `DEEPSEEK_API_KEY` Script Properties.
    Never put either value in this repository, an issue, or a URL.
-   Optional 3.0 features (assets, recurring rules): in the editor run `migrationsDryRun`,
+   Optional 3.0 features (assets, recurring rules, debts): in the editor run `migrationsDryRun`,
    review, then `migrationsApply`. It only adds new sheets; existing sheets are never changed.
 3. Deploy → Manage deployments → **Edit (pencil) on the existing deployment** → Version: **New version** → Deploy.
    Editing the existing deployment keeps the same `/exec` URL, so the APK and both phones keep syncing
@@ -42,7 +42,10 @@ Once synced, transactions and budgets are shared through the same spreadsheet.
   budget alerts and a clearly labelled 3-month forecast.
 - **Tài sản & nợ:** asset register with valuation history, net worth at a chosen date
   (shown only when assets and loan balances are complete), loan interest vs principal, and a
-  repayment simulator that lists its assumptions.
+  repayment simulator that lists its assumptions. **Thêm nợ** records debts outside the Loans
+  sheet (relatives, credit cards, instalments) in a `Debts` sheet; they count toward total debt.
+  Spreadsheets set up before this need the new `Code.gs` and one more `migrationsApply` run
+  (adds only the `Debts` sheet).
 - **Kế hoạch & lịch:** recurring income/expenses, 60-day calendar, reminders. A planned item
   becomes a transaction only when you confirm it (safe to confirm twice or on two phones).
 - **Budget tracking:** 80%/100% thresholds and month-over-month change; planned items shown separately.
