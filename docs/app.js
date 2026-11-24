@@ -5,22 +5,21 @@ let transactions=read(STORE.tx,[]),budgets=read(STORE.budget,{});
 let budgetState=read('family_budget_sync_v2',{revision:null,pending:null,remote:null}),pendingDeletes=read('family_deleted_v2',[]),syncFlight=null,lastSyncOk=false;
 let editBase='',lastVerified=read('lastVerifiedV3',null);
 function queued(){return transactions.filter(t=>!t.synced).length+pendingDeletes.length+(budgetState.pending?1:0)}
-function limitsAt(all,month){
- const out=Object.fromEntries(Object.entries(all).filter(([key])=>!key.includes(':')));
- for(const key of Object.keys(all).filter(k=>k.includes(':')&&k.slice(0,7)<=month).sort()){const cat=key.slice(8);if(all[key]===-1)delete out[cat];else out[cat]=all[key];}return out;
-}
+// Financial rules live in docs/src/domain (pure, parity-tested against the legacy code).
+const {money:FM,budget:FB,cashflow:FC,loan:FL}=FFDomain;
+function limitsAt(all,month){return FB.limitsAt(all,month)}
 let activeMonth=new Date(),entryType='Expense',selectedCategory='food',historyFilter='All',detailCategory=null,editingTransactionId=null;
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 function read(key,fallback){try{return JSON.parse(localStorage.getItem('ffpages:'+key))??fallback}catch{return fallback}}
 function write(key,val){localStorage.setItem('ffpages:'+key,JSON.stringify(val))}
-function money(n){return new Intl.NumberFormat('vi-VN').format(Math.round(Number(n)||0))+' ₫'}
-function budgetLevel(spend,budget){return budget>0?(spend/budget<=0.65?'green':spend/budget<0.9?'yellow':'red'):'unset'}
-function moneyMillions(n){return new Intl.NumberFormat('vi-VN',{maximumFractionDigits:2}).format((Number(n)||0)/1000000)+' tr'}
+function money(n){return FM.formatVnd(n)}
+function budgetLevel(spend,budget){return FB.budgetLevel(spend,budget)}
+function moneyMillions(n){return FM.formatMillions(n)}
 function dateISO(d=new Date()){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)}
 function monthKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
 function catInfo(id,type='Expense'){if(id==='loan-payment')return ['loan-payment','Trả nợ','🏦'];return [...EXPENSE_CATS,...INCOME_CATS].find(c=>c[0]===id)||['other',type==='Expense'?'Khác':'Thu nhập','•']}
 function currentTx(){const mk=monthKey(activeMonth);return transactions.filter(t=>String(t.date).slice(0,7)===mk)}
-function totals(){return currentTx().reduce((a,t)=>{a[t.type==='Income'?'income':'expense']+=Number(t.amount)||0;return a},{expense:0,income:0})}
+function totals(){const t=FC.monthTotals(transactions,monthKey(activeMonth));return {expense:t.expense,income:t.income}}
 function showToast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>el.classList.remove('show'),2400)}
 function endpoint(){return nativeConfig.hasToken?nativeConfig.endpoint:''}
 function render(){renderHeader();renderHome();renderHistory();renderBudgets();renderDashboard();renderCategoryDetail()}
@@ -30,7 +29,7 @@ function renderHeader(){
   pill.classList.toggle('connected',ok);pill.querySelector('b').textContent=!endpoint()?'Chưa kết nối':conflict?'Xung đột · Xem lại':n?n+' thay đổi chờ gửi · Thử lại':ok?'Đã đồng bộ':'Chờ đồng bộ · Thử lại';
   $('#lastSyncTime').textContent=lastVerified?'Lần đồng bộ hoàn tất: '+new Date(lastVerified).toLocaleString('vi-VN'):'';
 }
-function effectiveBudgets(){const b=limitsAt(budgets,monthKey(activeMonth));return {...b,'loan-payment':b['loan-payment']??homeLoanSummary(monthKey(activeMonth)).total};}
+function effectiveBudgets(){const mk=monthKey(activeMonth);return FB.effectiveBudgets(budgets,mk,homeLoanSummary(mk).total);}
 function renderHome(){
   const t=totals(),remaining=t.income-t.expense,totalBudget=Object.values(effectiveBudgets()).reduce((a,b)=>a+(Number(b)||0),0),pct=totalBudget?Math.round(t.expense/totalBudget*100):0;
   for(const [id,value] of [['#expenseTotal',t.expense],['#incomeTotal',t.income],['#remainingTotal',remaining]]){const el=$(id);el.textContent=moneyMillions(value);el.title=money(value);el.setAttribute('aria-label',money(value));}$('#savingRate').textContent=t.income?`${Math.round(remaining/t.income*100)}%`:'0%';
@@ -47,13 +46,7 @@ function renderHome(){
   $('#categoryEmpty').classList.toggle('show',!sorted.length);
 }
 
-function homeLoanSummary(month){
-  const banks=trackedBanks(month);
-  const rows=banks.map(bank=>{const source=LOAN_SCHEDULE.records.find(r=>r.bank===bank&&r.month===month);return source?calculateLoanPayment(source,loanRates):{bank,missing:true};});
-  const missing=rows.some(r=>r.missing),label=month.split('-').reverse().join('/');
-  const missingNote=!missing?'':month<LOAN_SCHEDULE.start?`${label}: chưa có lịch vay; dữ liệu bắt đầu từ 10/2026.`:`${label}: chưa có lịch ${rows.filter(r=>r.missing).map(r=>r.bank).join(', ')}.`;
-  return {rows,missing,missingNote,total:(LOAN_SCHEDULE.extraDebt||0)+rows.reduce((sum,r)=>sum+(r.missing?0:Math.round(r.payment)),0)};
-}
+function homeLoanSummary(month){return FL.loanSummary(LOAN_SCHEDULE,month,loanRates)}
 function renderLoanDetail(){
   const debt=homeLoanSummary(monthKey(activeMonth));
   $('#categoryDetailTitle').textContent='Trả nợ';
@@ -176,7 +169,7 @@ function renderBudgets(){
   $('#budgetEditor').insertAdjacentHTML('beforeend',`<div class="budget-input-row"><span class="cat-icon">🏦</span><label for="budget-loan-payment">Trả nợ</label><input id="budget-loan-payment" data-budget="loan-payment" inputmode="numeric" value="${manualDebt?new Intl.NumberFormat('vi-VN').format(scoped['loan-payment']):''}" placeholder="${new Intl.NumberFormat('vi-VN').format(autoDebt)}" aria-label="Ngân sách Trả nợ; để trống dùng mức tự động" /></div><p class="debt-budget-note">Trả nợ: để trống sẽ dùng lịch ngân hàng và khoản bổ sung riêng trong Sheets của tháng đang xem.</p>`);
   $$('[data-budget]').forEach(i=>i.addEventListener('input',()=>{i.value=i.dataset.budget==='loan-payment'&&i.value.trim()===''?'':new Intl.NumberFormat('vi-VN').format(parseDigits(i.value))}));
 }
-function parseDigits(v){return Number(String(v).replace(/\D/g,''))||0}
+function parseDigits(v){return FM.parseDigits(v)}
 function openEntry(type='Expense'){editingTransactionId=null;entryType=type;selectedCategory=(type==='Expense'?EXPENSE_CATS:INCOME_CATS)[0][0];$('#entryForm').reset();$('#dateInput').value=dateISO();$('#personInput').value=read('lastPerson','Vợ');renderEntry();openOverlay('#entryOverlay');setTimeout(()=>$('#amountInput').focus(),220)}
 function editIncome(id){
   let tx=transactions.find(t=>t.id===id);if(!tx)return;
@@ -303,7 +296,7 @@ $$('[data-filter]').forEach(b=>b.onclick=()=>{historyFilter=b.dataset.filter;$$(
 $('#saveBudgetBtn').onclick=async()=>{
   if(syncFlight){showToast('Đang đồng bộ, vui lòng đợi rồi lưu lại.');return;}
   const values={};$$('[data-budget]').forEach(i=>{if(i.dataset.budget==='loan-payment'&&i.value.trim()==='')return;values[i.dataset.budget]=parseDigits(i.value);});
-  const scoped=limitsAt(budgets,monthKey(activeMonth)),merged={...budgets};for(const [id] of EXPENSE_CATS){if(values[id]!==scoped[id])merged[monthKey(activeMonth)+':'+id]=values[id]??-1;}budgets=merged;budgetState.pending={values:{...budgets},baseRevision:budgetState.pending?budgetState.pending.baseRevision:budgetState.revision};persistBudgetState();render();
+  budgets=FB.applyMonthEdits(budgets,monthKey(activeMonth),values,EXPENSE_CATS.map(c=>c[0]));budgetState.pending={values:{...budgets},baseRevision:budgetState.pending?budgetState.pending.baseRevision:budgetState.revision};persistBudgetState();render();
   $('#saveBudgetBtn').disabled=true;try{if(endpoint())await syncWithSheet(false);showToast(budgetState.pending?'Đã lưu trên máy · Chưa ghi lên Sheets':'Đã lưu ngân sách vào Google Sheets');}finally{$('#saveBudgetBtn').disabled=false;}
 };
 $('#useRemoteBudget').onclick=()=>{const remote=budgetState.remote;if(!remote)return;budgets={...remote.values};budgetState={revision:remote.revision,pending:null,remote:null};persistBudgetState();render();};
