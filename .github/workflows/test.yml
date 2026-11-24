@@ -23,3 +23,7 @@ jobs:
       - run: npm install --no-save playwright@1.63.0 axe-core@4.10.3
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
+      - name: e2e against the deployable single-file bundle
+        run: npm run e2e
+        env:
+          FF_BACKEND: bundle
