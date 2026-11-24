@@ -37,8 +37,11 @@ function renderHeader(){
   $('#monthLabel').textContent=period;$$('[data-period-label]').forEach(el=>el.textContent=period);
   const pill=$('#syncPill'),status=syncState(),last=lastVerified?'Lần đồng bộ hoàn tất: '+new Date(lastVerified).toLocaleString('vi-VN'):'';
   pill.classList.toggle('connected',status.state==='synced');pill.dataset.state=status.state;pill.querySelector('b').textContent=status.label;pill.title=status.error?'Lỗi gần nhất: '+status.error:status.label;
-  $$('[data-sync-mirror]').forEach(el=>el.innerHTML=UIc.syncStatus(status,last));
+  // Settings shows the last-sync time on its own line (#lastSyncTime), so its mirror omits it.
+  $$('[data-sync-mirror]').forEach(el=>el.innerHTML=UIc.syncStatus(status,el.closest('#settingsView')?'':last));
   $('#lastSyncTime').textContent=last||'Chưa có lần đồng bộ hoàn tất trên thiết bị này.';
+  // Keep "Trạng thái: …" in step with the pill; it used to stay at "Đang đồng bộ…" after a sync.
+  if(typeof renderSyncDiagnostics==='function')renderSyncDiagnostics();
 }
 function effectiveBudgets(){const mk=monthKey(activeMonth);return FB.effectiveBudgets(budgets,mk,homeLoanSummary(mk).total);}
 function renderHome(){
