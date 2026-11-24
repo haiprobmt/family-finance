@@ -7,3 +7,7 @@ node_modules/
 family-photo.*
 password.txt
 private/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties

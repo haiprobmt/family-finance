@@ -1,0 +1,38 @@
+plugins { id 'com.android.application' }
+
+// Release signing comes from environment variables so no key or password is ever stored in git:
+//   FF_KEYSTORE (path), FF_KEYSTORE_PASSWORD, FF_KEY_ALIAS, FF_KEY_PASSWORD
+def ks = System.getenv('FF_KEYSTORE')
+
+android {
+    namespace 'io.github.haiprobmt.familyfinance'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'io.github.haiprobmt.familyfinance'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '3.0.0'
+    }
+    signingConfigs {
+        release {
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('FF_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('FF_KEY_ALIAS')
+                keyPassword System.getenv('FF_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (ks) signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

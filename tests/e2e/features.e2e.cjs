@@ -160,7 +160,7 @@ test('service worker caches only allowlisted static files and serves the shell o
     await d.page.goto(w.base);
     await d.page.evaluate(() => navigator.serviceWorker.ready);
     const cached = await d.page.evaluate(async () => { const out = []; for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) out.push(r.url); return { keys: await caches.keys(), urls: out }; });
-    assert.deepEqual(cached.keys, ['family-finance-pages-v4']);
+    assert.deepEqual(cached.keys, ['family-finance-pages-v5']);
     assert.ok(cached.urls.length >= 30);
     assert.ok(cached.urls.every(u => u.startsWith(w.base)), 'no third-party or API responses cached');
     await d.context.setOffline(true);
