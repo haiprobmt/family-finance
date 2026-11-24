@@ -43,7 +43,8 @@
   // Principal/interest separation for accounting: principal reduces liability, interest is expense.
   function paymentBreakdown(row) {
     if (row.missing) return { bank: row.bank, missing: true };
-    const interest = Math.round(row.interest), principal = Math.round(row.principalPayment || 0);
+    // Schedules from the file carry only the amount due (no principal split): principal is then unknown.
+    const interest = Math.round(row.interest), principal = row.principalPayment === undefined ? null : Math.round(row.principalPayment);
     return { bank: row.bank, month: row.month, interest, principal, payment: Math.round(row.payment), expensePortion: interest, liabilityReduction: principal };
   }
   // Outstanding liability at a month cut-off from the schedule's interest-bearing principal.

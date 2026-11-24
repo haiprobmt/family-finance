@@ -4,7 +4,7 @@
   "description": "Chi Tiêu Gia Đình — PWA (docs/) and Google Apps Script backend (apps-script/). No runtime dependencies.",
   "scripts": {
     "test": "node tests/web.cjs && node --test tests/*.test.cjs",
-    "e2e": "node tests/e2e/run.cjs",
+    "e2e": "node --test --test-concurrency=1 tests/e2e/*.e2e.cjs",
     "build:apps-script": "node tools/build-apps-script.cjs"
   }
 }

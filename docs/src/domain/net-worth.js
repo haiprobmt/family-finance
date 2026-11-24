@@ -62,7 +62,8 @@
       return { id: a.id, name: a.name, type: a.type, share, valuation: v, value: v ? Math.round(v.value * share) : null, unknown: !v };
     });
     const unknown = items.filter(i => i.unknown);
-    return { cutoff, items, total: unknown.length ? null : items.reduce((s, i) => s + i.value, 0), knownTotal: items.reduce((s, i) => s + (i.value || 0), 0), unknownCount: unknown.length };
+    // No registered assets is unknown (not a confirmed zero), like an unvalued asset.
+    return { cutoff, items, total: unknown.length || !items.length ? null : items.reduce((s, i) => s + i.value, 0), knownTotal: items.reduce((s, i) => s + (i.value || 0), 0), unknownCount: unknown.length };
   }
   // Net worth = assets - liabilities at the same cut-off. Null unless both sides are complete.
   function netWorth({ assets = [], valuations = [], schedule, cutoff }) {

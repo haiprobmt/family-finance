@@ -99,7 +99,9 @@ test('assets/net worth: latest valuation by cut-off, ownership share, unknown va
   assert.equal(aug.assets.items.find(i => i.id === 'cash').unknown, true, 'no valuation yet → unknown');
   assert.equal(aug.netWorth, null);
   assert.ok(aug.gaps.length >= 2, 'unknown asset and missing liability both reported');
-  assert.equal(D.netWorth.netWorth({ assets: [], valuations: [], schedule, cutoff: '2026-10-31' }).netWorth, null, 'no assets → unknown, not negative debt');
+  const none = D.netWorth.netWorth({ assets: [], valuations: [], schedule, cutoff: '2026-10-31' });
+  assert.equal(none.netWorth, null, 'no assets → unknown, not negative debt');
+  assert.equal(none.assets.total, null, 'no assets → asset total unknown, not 0');
 });
 
 const rule = (over = {}) => ({ id: 'rent', type: 'Expense', amount: 5000000, category: 'home', person: 'Gia đình', note: 'Tiền nhà', cadence: 'monthly', interval: 1, startDate: '2027-01-31', endDate: '', status: 'active', skipped: [], ...over });
@@ -167,4 +169,10 @@ test('insights tools: grounded, minimal, with period/coverage/provenance', () =>
   const r = D.insights.reminders({ planned: [{ id: 'x', status: 'overdue', dueDate: '2026-11-01' }], budget: D.budget.utilization({ food: 95 }, { food: 100 }), sync: { state: 'failed', pending: 2 } });
   assert.deepEqual(plain(r.map(x => x.kind)), ['overdue', 'budget-warn', 'sync-failed']);
   assert.deepEqual(plain(D.insights.validateTransaction({ id: 'a', date: '2026-01-01', type: 'Expense', amount: 0 })), ['amount']);
+});
+
+test('loan breakdown: file-based schedule without principal split reports principal as unknown', () => {
+  const row = D.loan.calculateLoanPayment({ bank: 'Shinhan', month: '2026-12', principal: 9e8, rate: 0.075, interest: 5500000, days: 31 }, D.loan.normalizeRates(null));
+  const b = D.loan.paymentBreakdown(row);
+  assert.equal(b.principal, null); assert.equal(b.liabilityReduction, null); assert.equal(b.payment, 5500000);
 });

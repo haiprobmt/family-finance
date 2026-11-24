@@ -4,7 +4,13 @@ const STORE={tx:'family_finance_transactions_v1',budget:'family_finance_budgets_
 let transactions=read(STORE.tx,[]),budgets=read(STORE.budget,{});
 let budgetState=read('family_budget_sync_v2',{revision:null,pending:null,remote:null}),pendingDeletes=read('family_deleted_v2',[]),syncFlight=null,lastSyncOk=false;
 let editBase='',lastVerified=read('lastVerifiedV3',null);
-function queued(){return transactions.filter(t=>!t.synced).length+pendingDeletes.length+(budgetState.pending?1:0)}
+let lastSyncError=null,hideAmounts=read('privacy_hide_amounts',false)===true;
+const localStore=FFData.createStore(localStorage);localStore.migrate();
+const extStore=FFExt.createExtStore({read,write,request:values=>nativeRequest(values),onChange:()=>{if(typeof renderFinanceViews==='function')renderFinanceViews()}});
+// Durable operation view over the legacy keys + 3.0 collections (FFSync.engine.pendingOperations).
+function operations(){return [...FFSync.engine.pendingOperations({transactions,pendingDeletes,budgetState}),...extStore.operations()]}
+function queued(){return operations().length}
+function syncState(){return FFSync.engine.syncStatus({configured:!!endpoint(),syncing:!!syncFlight,lastError:lastSyncError,lastSyncOk,operations:operations()})}
 // Financial rules live in docs/src/domain (pure, parity-tested against the legacy code).
 const {money:FM,budget:FB,cashflow:FC,loan:FL}=FFDomain;
 function limitsAt(all,month){return FB.limitsAt(all,month)}
@@ -12,9 +18,9 @@ let activeMonth=new Date(),entryType='Expense',selectedCategory='food',historyFi
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 function read(key,fallback){try{return JSON.parse(localStorage.getItem('ffpages:'+key))??fallback}catch{return fallback}}
 function write(key,val){localStorage.setItem('ffpages:'+key,JSON.stringify(val))}
-function money(n){return FM.formatVnd(n)}
+function money(n){return hideAmounts?'••••• ₫':FM.formatVnd(n)}
 function budgetLevel(spend,budget){return FB.budgetLevel(spend,budget)}
-function moneyMillions(n){return FM.formatMillions(n)}
+function moneyMillions(n){return hideAmounts?'••• tr':FM.formatMillions(n)}
 function dateISO(d=new Date()){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)}
 function monthKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
 function catInfo(id,type='Expense'){if(id==='loan-payment')return ['loan-payment','Trả nợ','🏦'];return [...EXPENSE_CATS,...INCOME_CATS].find(c=>c[0]===id)||['other',type==='Expense'?'Khác':'Thu nhập','•']}
@@ -22,11 +28,11 @@ function currentTx(){const mk=monthKey(activeMonth);return transactions.filter(t
 function totals(){const t=FC.monthTotals(transactions,monthKey(activeMonth));return {expense:t.expense,income:t.income}}
 function showToast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>el.classList.remove('show'),2400)}
 function endpoint(){return nativeConfig.hasToken?nativeConfig.endpoint:''}
-function render(){renderHeader();renderHome();renderHistory();renderBudgets();renderDashboard();renderCategoryDetail()}
+function render(){renderHeader();renderHome();renderHistory();renderBudgets();renderDashboard();renderCategoryDetail();if(typeof renderFinanceViews==='function')renderFinanceViews()}
 function renderHeader(){
   $('#monthLabel').textContent=new Intl.DateTimeFormat('vi-VN',{month:'long',year:'numeric'}).format(activeMonth);
-  const pill=$('#syncPill'),n=queued(),conflict=budgetState.remote||transactions.some(t=>t.conflict),ok=lastSyncOk&&!n&&!conflict;
-  pill.classList.toggle('connected',ok);pill.querySelector('b').textContent=!endpoint()?'Chưa kết nối':conflict?'Xung đột · Xem lại':n?n+' thay đổi chờ gửi · Thử lại':ok?'Đã đồng bộ':'Chờ đồng bộ · Thử lại';
+  const pill=$('#syncPill'),status=syncState();
+  pill.classList.toggle('connected',status.state==='synced');pill.dataset.state=status.state;pill.querySelector('b').textContent=status.label;pill.title=status.error?'Lỗi gần nhất: '+status.error:'';
   $('#lastSyncTime').textContent=lastVerified?'Lần đồng bộ hoàn tất: '+new Date(lastVerified).toLocaleString('vi-VN'):'';
 }
 function effectiveBudgets(){const mk=monthKey(activeMonth);return FB.effectiveBudgets(budgets,mk,homeLoanSummary(mk).total);}
@@ -43,6 +49,8 @@ function renderHome(){
 
   const exp=currentTx().filter(t=>t.type==='Expense');const sums={};exp.forEach(t=>sums[t.category]=(sums[t.category]||0)+Number(t.amount));const debt=homeLoanSummary(monthKey(activeMonth));const paid=sums['loan-payment']||0;$('#debtSummary').textContent='Trả nợ · Dự kiến '+money(debt.total)+' · Đã trả '+money(paid)+' · Còn phải trả '+money(Math.max(0,debt.total-paid));const sorted=Object.entries(sums).sort((a,b)=>b[1]-a[1]);
   renderExpensePie(sorted,debt);
+  // Missing loan schedule is never shown as a confirmed number (BASELINE_AUDIT D6).
+  if(totalBudget&&debt.missing&&!Object.prototype.hasOwnProperty.call(limitsAt(budgets,monthKey(activeMonth)),'loan-payment')){$('#budgetCaption').textContent+=' · Ngân sách trả nợ tạm tính (thiếu lịch vay)';$('#budgetGaugeLimit').textContent+=' (tạm tính)';}
   $('#categoryEmpty').classList.toggle('show',!sorted.length);
 }
 
@@ -181,11 +189,8 @@ function editIncome(id){
   if(![...$('#personInput').options].some(o=>o.value===tx.person))$('#personInput').add(new Option(tx.person||'Gia đình',tx.person||'Gia đình'));
   $('#personInput').value=tx.person||'Gia đình';renderEntry();openOverlay('#entryOverlay');$('#amountInput').focus();
 }
-function sameTransactionValues(a,b){return ['date','type','category','person','note'].every(k=>String(a[k]||'')===String(b[k]||''))&&Number(a.amount)===Number(b.amount)}
-function mergeSheetTransactions(remote,local){
-  const pending=local.filter(t=>!t.synced),remoteIds=new Set(remote.map(t=>t.id));
-  return remote.map(t=>{const edit=pending.find(p=>p.id===t.id);if(!edit||sameTransactionValues(edit,t))return t;if(!edit.pendingUpdate&&!edit.conflict)edit.conflict={remote:t};return edit}).concat(pending.filter(t=>!remoteIds.has(t.id)));
-}
+function sameTransactionValues(a,b){return FFSync.engine.sameTransactionValues(a,b)}
+function mergeSheetTransactions(remote,local){return FFSync.engine.mergeSheetTransactions(remote,local)}
 async function updateIncome(id,input){
   const index=transactions.findIndex(t=>t.id===id);if(index<0)return showToast('Giao dịch không còn tồn tại');
   const old=transactions[index];
@@ -210,7 +215,8 @@ function openOverlay(sel){const o=$(sel);o.classList.add('open');o.setAttribute(
 function closeOverlay(sel){const o=$(sel);o.classList.remove('open');o.setAttribute('aria-hidden','true')}
 async function saveTransaction(input){
   write('lastPerson',input.person||'Gia đình');
-  const tx={id:crypto.randomUUID?crypto.randomUUID():Date.now().toString(36),timestamp:new Date().toISOString(),date:input.date||dateISO(),type:input.type||'Expense',amount:Number(input.amount),category:input.category,person:input.person||'Gia đình',note:input.note||'',synced:false};
+  if(input.id&&transactions.some(t=>t.id===input.id))return transactions.find(t=>t.id===input.id);
+  const tx={id:input.id||(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)),timestamp:new Date().toISOString(),date:input.date||dateISO(),type:input.type||'Expense',amount:Number(input.amount),category:input.category,person:input.person||'Gia đình',note:input.note||'',synced:false};
   transactions.push(tx);write(STORE.tx,transactions);render();
   if(endpoint()){
     try{await pushToSheet(tx);await syncWithSheet(true);const saved=transactions.find(t=>t.id===tx.id);showToast(saved?.synced?'Đã lưu và đồng bộ Google Sheets':'Đã lưu · Đang chờ xác nhận đồng bộ')}catch{showToast('Đã lưu trên điện thoại · Chưa thể đồng bộ')}
@@ -218,51 +224,40 @@ async function saveTransaction(input){
   return tx;
 }
 async function pushToSheet(tx,action='create'){try{return await nativeRequest({...tx,action:'v3_'+action,amount:String(tx.amount||'')});}catch(e){if(e.payload?.code==='TX_CONFLICT'){tx.conflict={remote:e.payload.remote?sheetRecord(e.payload.remote):null};write(STORE.tx,transactions);render();showToast('Xung đột giao dịch · Mở Lịch sử để chọn bản dùng')}throw e;}}
-function sheetDate(value){
-  const raw=String(value||'');
-  if(/^\d{4}-\d{2}-\d{2}$/.test(raw))return raw;
-  // This family's Sheet serializes local midnight as 16:00 UTC (UTC+8).
-  // Recover its calendar date independently of the phone's timezone.
-  const parsed=new Date(raw);
-  if(raw.includes('T')&&!Number.isNaN(parsed.getTime())){
-    const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(parsed);
-    const get=type=>parts.find(p=>p.type===type).value;
-    return `${get('year')}-${get('month')}-${get('day')}`;
-  }
-  return raw.slice(0,10);
-}
-function sheetRecord(row){
-  return {id:String(row.ID||row.id||''),timestamp:String(row.Timestamp||row.timestamp||''),date:sheetDate(row.Date||row.date),type:String(row.Type||row.type||'Expense'),amount:Number(row.Amount||row.amount||0),category:String(row.Category||row.category||'other'),person:String(row.Person||row.person||'Gia đình'),note:String(row.Note||row.note||''),synced:true};
-}
+function sheetDate(value){return FFSync.engine.sheetDate(value)}
+function sheetRecord(row){return FFSync.engine.sheetRecord(row)}
 async function requestSheetSnapshot(includeMetadata=false){const data=await nativeRequest({action:'snapshot'});if(data.apiVersion!==3||data.webVersion!==1)throw new Error('Cần triển khai apps-script/Code.gs của bản GitHub Pages.');return includeMetadata?data:data.transactions;}
 function persistBudgetState(){write(STORE.budget,budgets);write('family_budget_sync_v2',budgetState);}
-function sameBudgets(a,b){return JSON.stringify(Object.keys(a).sort().map(k=>[k,a[k]]))===JSON.stringify(Object.keys(b).sort().map(k=>[k,b[k]]));}
+function sameBudgets(a,b){return FFSync.engine.sameBudgets(a,b)}
 async function mergeRemoteBudget(remote){
   if(!remote||!remote.values||!remote.revision)throw new Error('Máy chủ chưa hỗ trợ đồng bộ ngân sách. Hãy cập nhật Code.gs.');
-  const pending=budgetState.pending;
-  if(!pending||sameBudgets(pending.values,remote.values)){budgets={...remote.values};budgetState={revision:remote.revision,pending:null,remote:null};persistBudgetState();return;}
-  if(pending.baseRevision!==remote.revision){budgetState.remote=remote;persistBudgetState();return;}
+  const pending=budgetState.pending,decision=FFSync.engine.budgetDecision(budgetState,remote);
+  if(decision==='adopt'){budgets={...remote.values};budgetState={revision:remote.revision,pending:null,remote:null};persistBudgetState();return;}
+  if(decision==='conflict'){budgetState.remote=remote;persistBudgetState();return;}
   try{const saved=await nativeRequest({action:'save_budgets',values:JSON.stringify(pending.values),revision:pending.baseRevision});budgets={...saved.budgets.values};budgetState={revision:saved.budgets.revision,pending:null,remote:null};persistBudgetState();}
   catch(error){if(error.payload?.code==='BUDGET_CONFLICT'){budgetState.remote=error.payload.budgets;persistBudgetState();}else throw error;}
 }
 async function syncWithSheet(quiet=false){
   if(syncFlight)return syncFlight;
   syncFlight=(async()=>{
-    $('#syncNowBtn')?.classList.add('syncing');
+    $('#syncNowBtn')?.classList.add('syncing');renderHeader();
     try{
       const snapshot=await requestSheetSnapshot(true);if(snapshot.loans){Object.assign(LOAN_SCHEDULE,snapshot.loans);write('loans',snapshot.loans)}const remote=snapshot.transactions.map(sheetRecord).filter(t=>t.id&&!pendingDeletes.includes(t.id));
       transactions=mergeSheetTransactions(remote,transactions).filter(t=>!pendingDeletes.includes(t.id));write(STORE.tx,transactions);
-      await mergeRemoteBudget(snapshot.budgets);lastSyncOk=!queued()&&!budgetState.remote;if(lastSyncOk){lastVerified=Date.now();write('lastVerifiedV3',lastVerified)}render();
+      await mergeRemoteBudget(snapshot.budgets);
+      try{await extStore.sync()}catch(error){console.warn('ext sync',error.message)}
+      lastSyncError=extStore.state().lastError;lastSyncOk=!queued()&&!budgetState.remote&&!lastSyncError;if(lastSyncOk){lastVerified=Date.now();write('lastVerifiedV3',lastVerified)}render();
       if(!quiet)showToast(budgetState.remote?'Ngân sách có xung đột · Mở Ngân sách để chọn bản dùng':queued()?'Còn thay đổi chưa đồng bộ':'Đã đồng bộ Google Sheets');return lastSyncOk;
-    }catch(error){lastSyncOk=false;renderHeader();renderBudgets();if(!quiet)showToast(error.message||'Chưa thể đồng bộ');return false;}
+    }catch(error){lastSyncOk=false;lastSyncError=error.message||'Không thể đồng bộ';renderHeader();renderBudgets();if(!quiet)showToast(error.message||'Chưa thể đồng bộ');return false;}
     finally{$('#syncNowBtn')?.classList.remove('syncing');}
   })();
-  try{return await syncFlight;}finally{syncFlight=null;}
+  try{return await syncFlight;}finally{syncFlight=null;renderHeader();}
 }
 async function retryUnsynced(){
   if(!endpoint())return;
-  for(const id of [...pendingDeletes]){try{await pushToSheet({id},'delete');pendingDeletes=pendingDeletes.filter(item=>item!==id);write('family_deleted_v2',pendingDeletes);}catch{break;}}
-  const pending=transactions.filter(t=>!t.synced&&!t.conflict&&!pendingDeletes.includes(t.id));for(const tx of pending){try{await pushToSheet(tx,tx.pendingUpdate?'update':'create');}catch{break;}}
+  // Acknowledged operations are removed one by one; the first failure stops the batch and keeps the rest.
+  for(const id of [...pendingDeletes]){try{await pushToSheet({id},'delete');pendingDeletes=pendingDeletes.filter(item=>item!==id);write('family_deleted_v2',pendingDeletes);}catch(error){if(!error.payload)lastSyncError=error.message;break;}}
+  const pending=transactions.filter(t=>!t.synced&&!t.conflict&&!pendingDeletes.includes(t.id));for(const tx of pending){try{await pushToSheet(tx,tx.pendingUpdate?'update':'create');}catch(error){if(!error.payload)lastSyncError=error.message;break;}}
   await syncWithSheet(true);
 }
 async function deleteTransaction(id){
@@ -303,12 +298,12 @@ $('#useRemoteBudget').onclick=()=>{const remote=budgetState.remote;if(!remote)re
 $('#useLocalBudget').onclick=async()=>{if(!budgetState.remote||!budgetState.pending)return;if(!confirm('Ghi ngân sách trên điện thoại này thay cho bản đang có trên Google Sheets?'))return;budgetState.pending.baseRevision=budgetState.remote.revision;budgetState.remote=null;persistBudgetState();await syncWithSheet(false);};
 $('#saveEndpointBtn').onclick=async()=>{
   const url=$('#endpointInput').value.trim(),token=$('#familyTokenInput').value.trim();
-  if(url!==nativeConfig.endpoint&&(transactions.some(t=>!t.synced)||pendingDeletes.length||budgetState.pending))return showToast('Còn dữ liệu chưa đồng bộ. Hãy hoàn tất trước khi đổi spreadsheet.');
+  if(url!==nativeConfig.endpoint&&(transactions.some(t=>!t.synced)||pendingDeletes.length||budgetState.pending||extStore.operations().length))return showToast('Còn dữ liệu chưa đồng bộ. Hãy hoàn tất trước khi đổi spreadsheet.');
   const result=JSON.parse(FamilyNative.configure(url,token,$('#rememberConnection').checked));if(!result.ok)return showToast(result.error);
-  if(url!==nativeConfig.endpoint){transactions=[];budgets={};Object.assign(LOAN_SCHEDULE,{records:[],extraDebt:0});write('loans',LOAN_SCHEDULE);lastVerified=null;write('lastVerifiedV3',null);budgetState={revision:null,pending:null,remote:null};write(STORE.tx,transactions);persistBudgetState();}
+  if(url!==nativeConfig.endpoint){extStore.clear();transactions=[];budgets={};Object.assign(LOAN_SCHEDULE,{records:[],extraDebt:0});write('loans',LOAN_SCHEDULE);lastVerified=null;write('lastVerifiedV3',null);budgetState={revision:null,pending:null,remote:null};write(STORE.tx,transactions);persistBudgetState();}
   nativeConfig=JSON.parse(FamilyNative.getConfig());$('#familyTokenInput').value='';closeOverlay('#settingsOverlay');render();await retryUnsynced();if(lastSyncOk)showToast('Đã kết nối Google Sheets');else {openOverlay('#settingsOverlay');showToast('Chưa kết nối được. Bấm Đồng bộ ở Lịch sử để xem lỗi.');}
 };
-$('#clearDataBtn').onclick=()=>{if(!confirm('Xóa bản lưu trên điện thoại, gồm các thay đổi chưa đồng bộ? Dữ liệu trên Google Sheets vẫn được giữ.'))return;transactions=[];budgets={};pendingDeletes=[];budgetState={revision:null,pending:null,remote:null};write(STORE.tx,transactions);write('family_deleted_v2',pendingDeletes);persistBudgetState();render();closeOverlay('#settingsOverlay');};
+$('#clearDataBtn').onclick=()=>{if(typeof offerBackupBeforeReset==='function')offerBackupBeforeReset();if(!confirm('Xóa bản lưu trên điện thoại, gồm các thay đổi chưa đồng bộ? Dữ liệu trên Google Sheets vẫn được giữ.'))return;extStore.clear();transactions=[];budgets={};pendingDeletes=[];budgetState={revision:null,pending:null,remote:null};write(STORE.tx,transactions);write('family_deleted_v2',pendingDeletes);persistBudgetState();render();closeOverlay('#settingsOverlay');};
 function assistantContext(q){
   const viewMonth=monthKey(activeMonth);if(!/trả nợ|khoản vay|shinhan/i.test(q))return {viewMonth};
   const m=/dự báo|tháng tới/i.test(q)?monthKey(new Date(activeMonth.getFullYear(),activeMonth.getMonth()+1,1)):viewMonth;

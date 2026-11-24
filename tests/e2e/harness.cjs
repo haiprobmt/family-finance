@@ -28,14 +28,15 @@ function serve() {
   });
 }
 
-async function createWorld({ seed = true, now = null } = {}) {
+async function createWorld({ seed = true, now = null, files = null, migrate = false } = {}) {
   const ss = new FakeSpreadsheet();
   if (seed) syn.seedSpreadsheet(ss, { txs: syn.transactions({ start: '2026-09', monthCount: 3, perMonth: 6 }) });
-  const backend = loadBackend(backendFiles(), { spreadsheet: ss, properties: { FAMILY_ACCESS_TOKEN: syn.TEST_TOKEN }, fetchHandler: (url, opt) => world.aiHandler(url, opt) });
+  const backend = loadBackend(files || backendFiles(), { spreadsheet: ss, properties: { FAMILY_ACCESS_TOKEN: syn.TEST_TOKEN, DEEPSEEK_API_KEY: 'sk-synthetic-e2e-key' }, fetchHandler: (url, opt) => world.aiHandler(url, opt), now });
+  if (migrate) backend.call('migrationsApply');
   const { server, base } = await serve();
   const browser = await chromium.launch();
   const world = {
-    ss, backend, base, browser, devices: [], requests: [], offline: new Set(), dropResponse: new Set(),
+    ss, backend, base, browser, devices: [], requests: [], offline: new Set(), dropResponse: new Set(), failWhen: null,
     aiHandler: () => ({ status: 200, body: { choices: [{ message: { content: 'Trả lời mẫu từ trợ lý (giả lập).' } }] } }),
     async device(name, { serviceWorkers = 'block', viewport = { width: 412, height: 915 } } = {}) {
       const context = await browser.newContext({ serviceWorkers, viewport, locale: 'vi-VN', timezoneId: 'Asia/Ho_Chi_Minh' });
@@ -43,6 +44,7 @@ async function createWorld({ seed = true, now = null } = {}) {
       await context.route('https://script.google.com/**', async route => {
         const req = route.request();
         if (world.offline.has(name)) return route.abort('internetdisconnected');
+        if (world.failWhen && world.failWhen(Object.fromEntries(new URLSearchParams(req.postData() || '')), name)) return route.abort('connectionreset');
         const params = Object.fromEntries(new URLSearchParams(req.postData() || ''));
         world.requests.push({ device: name, url: req.url(), method: req.method(), params });
         const result = backend.post(params);
@@ -68,6 +70,23 @@ async function createWorld({ seed = true, now = null } = {}) {
       await page.click('#saveEndpointBtn');
       await page.waitForFunction(() => document.querySelector('#syncPill b').textContent.includes('Đã đồng bộ'), null, { timeout: 15000 });
     },
+    // Helpers operating the real UI.
+    async addEntry(device, { amount, note = '', type = 'Expense', category = null }) {
+      const { page } = device;
+      await page.click('.nav-add');
+      await page.waitForSelector('#entryOverlay.open');
+      if (type === 'Income') await page.click('.type-switch [data-type="Income"]');
+      if (category) await page.click(`[data-category="${category}"]`);
+      await page.fill('#amountInput', String(amount));
+      await page.fill('#noteInput', note);
+      await page.click('#submitEntry');
+      await page.waitForFunction(n => JSON.parse(localStorage.getItem('ffpages:family_finance_transactions_v1') || '[]').some(t => t.note === n), note);
+      await page.waitForFunction(() => !document.querySelector('#submitEntry').disabled);
+    },
+    local: (device, key) => device.page.evaluate(k => JSON.parse(localStorage.getItem('ffpages:' + k) || 'null'), key),
+    sheetRows: name => ss.getSheetByName(name) ? ss.getSheetByName(name).dump() : [],
+    async syncNow(device) { await device.page.evaluate(async () => { await retryUnsynced(); await syncWithSheet(true); }); },
+    pill: device => device.page.textContent('#syncPill b'),
     async close() { await browser.close(); server.close(); }
   };
   return world;
