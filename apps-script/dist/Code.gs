@@ -164,19 +164,37 @@
 //  - Rows before Techcombank 2026-12 use the file's Interest column as the payment.
 //  - Techcombank from 2026-12 uses principal * rate * days / 365 plus a fixed 909,400 principal.
 //  - A missing bank/month is reported as missing, never as a confirmed zero.
+//  - Any other bank (loans entered in the app) uses the file's Interest column as the payment and is
+//    tracked from its first to its last scheduled month.
 (function (root) {
   'use strict';
   const D = root.FFDomain = root.FFDomain || {};
   const TCB_PRINCIPAL_PAYMENT = 909400;
   const DAY_COUNT = 365;
 
-  function trackedBanks(month) { return month < '2026-11' ? ['Shinhan', 'Techcombank'] : ['Shinhan']; }
+  const LEGACY_BANKS = ['Shinhan', 'Techcombank'];
+  // Loans entered in the app (any other bank name) are tracked from their first to their last
+  // scheduled month; a gap inside that range is reported as missing.
+  function addedLoanRanges(schedule) {
+    const ranges = new Map();
+    for (const r of (schedule && schedule.records) || []) {
+      if (LEGACY_BANKS.includes(r.bank)) continue;
+      const x = ranges.get(r.bank);
+      if (!x) ranges.set(r.bank, { first: r.month, last: r.month });
+      else { if (r.month < x.first) x.first = r.month; if (r.month > x.last) x.last = r.month; }
+    }
+    return [...ranges].sort((a, b) => a[0].localeCompare(b[0]));
+  }
+  function trackedBanks(month, schedule) {
+    const legacy = month < '2026-11' ? ['Shinhan', 'Techcombank'] : ['Shinhan'];
+    return legacy.concat(addedLoanRanges(schedule).filter(([, x]) => month >= x.first && month <= x.last).map(([bank]) => bank));
+  }
+  function scheduleEnd(schedule) { return addedLoanRanges(schedule).reduce((end, [, x]) => (x.last > end ? x.last : end), schedule.end); }
   function loanScheduleRows(schedule) {
     const indexed = new Map(schedule.records.map(r => [r.bank + '|' + r.month, r]));
     const rows = [];
-    for (let year = 2026; year <= 2030; year++) for (let month = 1; month <= 12; month++) {
-      const key = year + '-' + String(month).padStart(2, '0'); if (key < schedule.start || key > schedule.end) continue;
-      for (const bank of trackedBanks(key)) rows.push(indexed.get(bank + '|' + key) || { bank, month: key, missing: true });
+    for (const key of D.money.monthRange(schedule.start, scheduleEnd(schedule))) {
+      for (const bank of trackedBanks(key, schedule)) rows.push(indexed.get(bank + '|' + key) || { bank, month: key, missing: true });
     }
     return rows;
   }
@@ -195,7 +213,7 @@
   // Scheduled repayment for a month (legacy homeLoanSummary). `total` includes ExtraDebtMonthly and
   // only known rows; `missing` must be shown to the user whenever true.
   function loanSummary(schedule, month, rates) {
-    const banks = trackedBanks(month);
+    const banks = trackedBanks(month, schedule);
     const rows = banks.map(bank => { const source = schedule.records.find(r => r.bank === bank && r.month === month); return source ? calculateLoanPayment(source, rates) : { bank, missing: true }; });
     const missing = rows.some(r => r.missing), label = month.split('-').reverse().join('/');
     const missingNote = !missing ? '' : month < schedule.start ? `${label}: chưa có lịch vay; dữ liệu bắt đầu từ 10/2026.` : `${label}: chưa có lịch ${rows.filter(r => r.missing).map(r => r.bank).join(', ')}.`;
@@ -210,7 +228,7 @@
   }
   // Outstanding liability at a month cut-off from the schedule's interest-bearing principal.
   function liabilityAt(schedule, month) {
-    const banks = trackedBanks(month), items = banks.map(bank => { const r = schedule.records.find(x => x.bank === bank && x.month === month); return r ? { bank, principal: Math.round(r.principal), month } : { bank, missing: true }; });
+    const banks = trackedBanks(month, schedule), items = banks.map(bank => { const r = schedule.records.find(x => x.bank === bank && x.month === month); return r ? { bank, principal: Math.round(r.principal), month } : { bank, missing: true }; });
     const missing = items.filter(i => i.missing).map(i => i.bank);
     return { month, items, missing, complete: missing.length === 0, total: missing.length ? null : items.reduce((s, i) => s + i.principal, 0), knownTotal: items.reduce((s, i) => s + (i.principal || 0), 0) };
   }
@@ -262,7 +280,7 @@
     return { interestSaved: base.totals.interest - withExtra.totals.interest, feesPaid: withExtra.totals.fees, netSaving: base.totals.interest - withExtra.totals.interest - withExtra.totals.fees, monthsSaved: base.months - withExtra.months };
   }
 
-  D.loan = { TCB_PRINCIPAL_PAYMENT, DAY_COUNT, trackedBanks, loanScheduleRows, normalizeRates, calculateLoanPayment, loanSummary, paymentBreakdown, liabilityAt, simulateRepayment, compareRepayment };
+  D.loan = { TCB_PRINCIPAL_PAYMENT, DAY_COUNT, LEGACY_BANKS, trackedBanks, scheduleEnd, loanScheduleRows, normalizeRates, calculateLoanPayment, loanSummary, paymentBreakdown, liabilityAt, simulateRepayment, compareRepayment };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
 // ---- net-worth.js ----
@@ -592,7 +610,7 @@
 // Family Finance API (apiVersion 3) — entry point and router.
 // Bind this project to the family's existing spreadsheet. Project files (see files.json):
 //   Domain.gs (generated financial engine), TransactionService.gs, BudgetService.gs,
-//   LoanReadService.gs, Extensions.gs (additive ext_* actions), Migrations.gs, Assistant.gs.
+//   LoanReadService.gs, LoanWriteService.gs, Extensions.gs (additive ext_* actions), Migrations.gs, Assistant.gs.
 // Compatibility: action names, request fields, responses and conflict codes are unchanged
 // for APK 2.3.0 and older PWA builds (see implementation/API_COMPATIBILITY.md).
 // Replaced with the commit id by the "Deploy Apps Script" GitHub workflow; doGet reports it so the
@@ -640,6 +658,7 @@ function doPost(e){
       if(p.action==='snapshot')return json(snapshot());
       if(p.action==='save_budgets')return json(saveBudgets(p));
       if(['v3_create','v3_update','v3_delete'].includes(p.action))return json(mutateTransaction({...p,action:p.action.slice(3)}));
+      if(p.action==='loan_save')return json(saveLoan(p));
       // 3.0 collections only: new additive migrations apply themselves on the first ext request
       // after a deploy (Migrations.gs autoMigrate). Legacy/APK actions above never trigger it.
       if(p.action==='ext_snapshot'){const migrationError=autoMigrate(),snap=extSnapshot();if(migrationError)snap.migrationError=migrationError;return json(snap);}
@@ -712,8 +731,9 @@ function saveBudgets(p){
 }
 
 // ==== LoanReadService.gs ====
-// Private loans (read-only). Optional table: Bank | Month | Principal | Rate | Interest | Days.
-// Rules preserved: only Shinhan/Techcombank, Techcombank excluded from 2026-11, no duplicates.
+// Private loans. Optional table: Bank | Month | Principal | Rate | Interest | Days.
+// Rules preserved: Techcombank excluded from 2026-11, no duplicate bank/month. Any bank name is
+// accepted (loans entered in the app, LoanWriteService.gs); Shinhan/Techcombank keep their rules.
 function readPrivateLoans(){
  const ss=SpreadsheetApp.getActiveSpreadsheet(),sheet=ss.getSheetByName('Loans');
  const result={start:'2026-10',end:'2030-12',records:[],extraDebt:0};
@@ -726,7 +746,7 @@ function readPrivateLoans(){
  for(const row of rows){
   if(!row[0])continue;
   const bank=String(row[0]),month=row[1] instanceof Date?Utilities.formatDate(row[1],ss.getSpreadsheetTimeZone(),'yyyy-MM'):String(row[1]);
-  if(!['Shinhan','Techcombank'].includes(bank)||!/^\d{4}-(0[1-9]|1[012])$/.test(month))throw new Error('Bank/Month trong Loans không hợp lệ');
+  if(!validLoanBank(bank)||!/^\d{4}-(0[1-9]|1[012])$/.test(month))throw new Error('Bank/Month trong Loans không hợp lệ');
   if(bank==='Techcombank'&&month>='2026-11')continue;
   const [principal,rate,interest,days]=row.slice(2,6).map(Number);
   if([principal,rate,interest,days].some(v=>!Number.isFinite(v)||v<0)||rate>1)throw new Error('Số liệu Loans không hợp lệ');
@@ -735,6 +755,67 @@ function readPrivateLoans(){
  }
  return result;
 }
+function validLoanBank(bank){return typeof bank==='string'&&bank.length>=1&&bank.length<=40&&bank.trim()===bank&&!/[\r\n\t|]/.test(bank);}
+
+// ==== LoanWriteService.gs ====
+// Loans entered or corrected in the app (action loan_save, additive; APK 2.3.0 never calls it).
+// `changes` is a JSON list of {op:'upsert'|'delete', row:{bank,month,principal,rate,interest,days},
+// base:<the row as the app last saw it, or null for a new row>}. Rows are identified by bank + month.
+// Every change is validated and checked against the sheet BEFORE anything is written; if any sheet
+// row differs from its base, nothing is written and LOAN_CONFLICT returns the current schedule.
+// Only columns A–F of the Loans sheet are touched, in place, so extra columns and row order are kept.
+const LOAN_HEADERS=['Bank','Month','Principal','Rate','Interest','Days'];
+const MAX_LOAN_CHANGES=600;
+function loanFields(r){return r?JSON.stringify([String(r.bank),String(r.month),Number(r.principal),Number(r.rate),Number(r.interest),Number(r.days)]):'null';}
+function validLoanRow(r){
+  const bank=String(r&&r.bank||''),month=String(r&&r.month||'');
+  if(!validLoanBank(bank))throw new Error('Tên khoản vay phải có 1–40 ký tự, không xuống dòng.');
+  if(!/^\d{4}-(0[1-9]|1[012])$/.test(month)||month<'2026-10'||month>'2060-12')throw new Error('Tháng phải từ 10/2026 đến 12/2060.');
+  if(bank==='Techcombank'&&month>='2026-11')throw new Error('Techcombank chỉ được theo dõi đến 10/2026.');
+  return {bank,month};
+}
+function saveLoan(p){
+  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  let changes;try{changes=JSON.parse(p.changes||'null');}catch(e){changes=null;}
+  if(!Array.isArray(changes)||!changes.length||changes.length>MAX_LOAN_CHANGES)throw new Error('Thay đổi lịch vay không hợp lệ.');
+  const plan=[],seen=new Set();
+  for(const c of changes){
+    const op=c&&c.op==='delete'?'delete':'upsert',key=validLoanRow(c&&c.row);
+    if(seen.has(key.bank+'|'+key.month))throw new Error('Trùng khoản vay/tháng: '+key.bank+' '+key.month);
+    seen.add(key.bank+'|'+key.month);
+    let next=null;
+    if(op==='upsert'){
+      const r=c.row;next={bank:key.bank,month:key.month,principal:Number(r.principal),rate:Number(r.rate),interest:Number(r.interest),days:Number(r.days)};
+      if(!(Number.isFinite(next.principal)&&next.principal>=0&&next.principal<=1e13))throw new Error('Dư nợ gốc không hợp lệ ('+key.month+').');
+      if(!(Number.isFinite(next.rate)&&next.rate>=0&&next.rate<=1))throw new Error('Lãi suất phải từ 0 đến 100%/năm ('+key.month+').');
+      if(!(Number.isFinite(next.interest)&&next.interest>=0&&next.interest<=1e12))throw new Error('Tiền phải trả không hợp lệ ('+key.month+').');
+      if(!(Number.isInteger(next.days)&&next.days>=1&&next.days<=31))throw new Error('Số ngày tính lãi phải từ 1 đến 31 ('+key.month+').');
+    }
+    plan.push({op,key,next,base:c.base||null});
+  }
+  let sheet=ss.getSheetByName('Loans');
+  if(!sheet&&plan.every(x=>x.op==='delete'))return {ok:true,loans:readPrivateLoans()};
+  const rows=sheet?sheet.getDataRange().getValues():[LOAN_HEADERS],headers=rows.shift()||[];
+  if(sheet&&LOAN_HEADERS.some((h,i)=>headers[i]!==h))throw new Error('Loans cần cột: '+LOAN_HEADERS.join(', '));
+  const tz=ss.getSpreadsheetTimeZone(),monthOf=v=>v instanceof Date?Utilities.formatDate(v,tz,'yyyy-MM'):String(v);
+  const index=new Map();rows.forEach((r,i)=>{if(r[0])index.set(String(r[0])+'|'+monthOf(r[1]),i);});
+  const writes=[],deletes=[],appends=[];
+  for(const x of plan){
+    const i=index.has(x.key.bank+'|'+x.key.month)?index.get(x.key.bank+'|'+x.key.month):-1;
+    const current=i<0?null:{bank:x.key.bank,month:x.key.month,principal:Number(rows[i][2]),rate:Number(rows[i][3]),interest:Number(rows[i][4]),days:Number(rows[i][5])};
+    if(x.op==='delete'){if(!current)continue;if(loanFields(x.base)!==loanFields(current))return loanConflict();deletes.push(i);continue;}
+    if(current&&loanFields(current)===loanFields(x.next))continue;   // already saved (replayed request)
+    if(loanFields(x.base)!==loanFields(current))return loanConflict();
+    const row=["'"+x.next.bank,"'"+x.next.month,x.next.principal,x.next.rate,x.next.interest,x.next.days];
+    if(current)writes.push({i,row});else appends.push(row);
+  }
+  if(!sheet){sheet=ss.insertSheet('Loans');sheet.getRange(1,1,1,LOAN_HEADERS.length).setValues([LOAN_HEADERS]);sheet.setFrozenRows(1);}
+  for(const w of writes)sheet.getRange(w.i+2,1,1,w.row.length).setValues([w.row]);
+  if(appends.length){const start=sheet.getLastRow()+1;sheet.getRange(start,1,appends.length,LOAN_HEADERS.length).setValues(appends);}
+  for(const i of deletes.sort((a,b)=>b-a))sheet.deleteRow(i+2);
+  return {ok:true,loans:readPrivateLoans()};
+}
+function loanConflict(){return {ok:false,code:'LOAN_CONFLICT',error:'Lịch vay đã thay đổi trên Google Sheets. Đã tải bản mới nhất, hãy kiểm tra rồi lưu lại.',loans:readPrivateLoans()};}
 
 // ==== Extensions.gs ====
 // Additive 3.0 collections: assets, asset valuations, recurring rules and debts.

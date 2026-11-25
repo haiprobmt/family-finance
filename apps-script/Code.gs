@@ -1,7 +1,7 @@
 // Family Finance API (apiVersion 3) — entry point and router.
 // Bind this project to the family's existing spreadsheet. Project files (see files.json):
 //   Domain.gs (generated financial engine), TransactionService.gs, BudgetService.gs,
-//   LoanReadService.gs, Extensions.gs (additive ext_* actions), Migrations.gs, Assistant.gs.
+//   LoanReadService.gs, LoanWriteService.gs, Extensions.gs (additive ext_* actions), Migrations.gs, Assistant.gs.
 // Compatibility: action names, request fields, responses and conflict codes are unchanged
 // for APK 2.3.0 and older PWA builds (see implementation/API_COMPATIBILITY.md).
 // Replaced with the commit id by the "Deploy Apps Script" GitHub workflow; doGet reports it so the
@@ -49,6 +49,7 @@ function doPost(e){
       if(p.action==='snapshot')return json(snapshot());
       if(p.action==='save_budgets')return json(saveBudgets(p));
       if(['v3_create','v3_update','v3_delete'].includes(p.action))return json(mutateTransaction({...p,action:p.action.slice(3)}));
+      if(p.action==='loan_save')return json(saveLoan(p));
       // 3.0 collections only: new additive migrations apply themselves on the first ext request
       // after a deploy (Migrations.gs autoMigrate). Legacy/APK actions above never trigger it.
       if(p.action==='ext_snapshot'){const migrationError=autoMigrate(),snap=extSnapshot();if(migrationError)snap.migrationError=migrationError;return json(snap);}

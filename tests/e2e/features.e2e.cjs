@@ -110,7 +110,7 @@ test('recurring rule: planned stays out of actuals, confirmation is idempotent a
   try {
     const a = await w.device('A'), b = await w.device('B');
     await w.connect(a); await w.connect(b);
-    const expenseBefore = await a.page.textContent('#expenseTotal');
+    const expenseBefore = await a.page.evaluate(() => totals().expense);
     await go(a, 'plan'); await a.page.click('#addRuleBtn');
     await a.page.fill('#ruleAmount', '3500000'); await a.page.fill('#ruleStart', '2026-11-26'); await a.page.fill('#ruleNote', 'Học phí mẫu');
     await a.page.click('#ruleForm .submit-entry');
@@ -118,7 +118,7 @@ test('recurring rule: planned stays out of actuals, confirmation is idempotent a
     assert.equal(w.sheetRows('RecurringRules').length, 2);
     assert.match(await a.page.textContent('#financialCalendar'), /Học phí mẫu[\s\S]*Sắp đến/);
     assert.match(await a.page.textContent('#homeReminderList'), /Sắp đến hạn/);
-    assert.equal(await a.page.textContent('#expenseTotal'), expenseBefore, 'planned item not counted as actual spend');
+    assert.equal(await a.page.evaluate(() => totals().expense), expenseBefore, 'planned item not counted as actual spend');
     await go(a, 'budget'); assert.match(await a.page.textContent('#budgetInsights'), /không[\s\S]*tính vào "đã chi"/);
     await w.syncNow(b);
     const ruleId = (await w.local(a, 'ext_cache_v1')).collections.recurring.values[0].id, occId = `rec-${ruleId}-2026-11-26`;
@@ -140,12 +140,16 @@ test('privacy mode hides amounts everywhere and persists across reload', async (
   try {
     const a = await w.device('A'); await w.connect(a);
     await a.page.click('#privacyBtn');
-    for (const sel of ['#expenseTotal', '#incomeTotal']) assert.match(await a.page.textContent(sel), /•/);
+    await go(a, 'home');
+    assert.match(await a.page.textContent('#expensePie .donut-center b'), /•/);
     assert.equal(await a.page.getAttribute('#privacyBtn', 'aria-pressed'), 'true');
-    await go(a, 'home'); assert.ok(!/\d{1,3}(\.\d{3})+ ₫/.test(await a.page.textContent('#dashCashflow')));
     assert.ok(!/\d{1,3}(\.\d{3})+ ₫/.test(await a.page.textContent('#homeView')), 'no full amounts anywhere on the dashboard');
-    await a.page.reload(); await a.page.waitForSelector('#expenseTotal');
-    assert.match(await a.page.textContent('#expenseTotal'), /•/);
+    await go(a, 'budget');
+    assert.ok(!/\d{1,3}(\.\d{3})+ ₫/.test(await a.page.textContent('#budgetSummary')), 'budget gauge hides amounts');
+    assert.match(await a.page.textContent('#budgetSummary .gauge-pct'), /•/);
+    await a.page.reload(); await a.page.waitForSelector('#expensePie .donut-center', { state: 'attached' });
+    await go(a, 'home');
+    assert.match(await a.page.textContent('#expensePie .donut-center b'), /•/);
   } finally { await w.close(); }
 });
 
@@ -166,13 +170,15 @@ test('assistant chips use grounded tools with provenance; provider failure still
   } finally { await w.close(); }
 });
 
-test('dashboard KPI drill-through lists exactly the source transactions; simulator shows labelled assumptions', async () => {
+test('spending-by-category drill-through lists exactly the source transactions; simulator shows labelled assumptions', async () => {
   const w = await createWorld({ now: NOW });
   try {
     const a = await w.device('A'); await w.connect(a);
-    await go(a, 'home'); await a.page.click('[data-action="drill"][data-type="Expense"]');
+    await go(a, 'home');
+    const category = await a.page.getAttribute('#expensePie [data-detail-category]', 'data-detail-category');
+    await a.page.click('#expensePie [data-detail-category]');
     await a.page.waitForSelector('#categoryDetailOverlay.open');
-    const expected = (await w.local(a, 'family_finance_transactions_v1')).filter(t => t.type === 'Expense' && t.date.startsWith('2026-11')).length;
+    const expected = (await w.local(a, 'family_finance_transactions_v1')).filter(t => t.type === 'Expense' && t.category === category && t.date.startsWith('2026-11')).length;
     assert.equal(await a.page.locator('#categoryDetailBody tr').count(), expected);
     await a.page.keyboard.press('Escape');
     await go(a, 'loans'); await a.page.fill('#simExtra', '5000000'); await a.page.click('#simulatorForm .submit-entry');

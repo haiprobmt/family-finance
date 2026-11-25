@@ -42,5 +42,18 @@
     return `<figure class="chart chart-donut"><figcaption class="sr-only">${esc(caption)}</figcaption><div class="donut-wrap"><svg viewBox="0 0 160 160" class="donut" role="img" aria-label="${esc(caption + ': ' + shown.map(s => s.label + ' ' + pct(s.value)).join(', '))}"><g transform="rotate(-90 80 80)">${arcs}</g></svg><div class="donut-center"><span>${esc(centerLabel)}</span><b class="money">${esc(compact(total))}</b></div></div>${legend}${tableFallback(caption, ['Danh mục', 'Số tiền', 'Tỷ trọng'], rows.map(r => [esc(r.label), esc(vnd(r.value)), pct(r.value)]))}</figure>`;
   }
 
-  UI.chart = { bar, donut, CATEGORY_COLORS, SERIES, colorOf };
+  // Semicircle gauge for budget use. ratio = spent / limit (null = no limit); values above 1 pin the
+  // needle at the end. Zones follow FFDomain.budget.budgetLevel: green ≤65%, yellow <90%, red ≥90%.
+  function gauge({ ratio, level = 'unset', caption, centerHtml = '', min = '0%', max = '100%' }) {
+    const R = 80, cx = 100, cy = 100, W = 18;
+    const at = f => { const t = Math.PI * (1 - f); return [cx + R * Math.cos(t), cy - R * Math.sin(t)]; };
+    const arc = (a, b) => { const [x1, y1] = at(a), [x2, y2] = at(b); return `M${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`; };
+    const f = ratio === null || !Number.isFinite(ratio) ? 0 : Math.max(0, Math.min(1, ratio));
+    const zones = [[0, 0.65, 'green'], [0.65, 0.9, 'yellow'], [0.9, 1, 'red']].map(([a, b, z]) => `<path class="gauge-zone zone-${z}" d="${arc(a, b)}" stroke-width="${W}" fill="none"/>`).join('');
+    const value = f > 0 ? `<path class="gauge-value" d="${arc(0, Math.max(f, 0.004))}" stroke-width="${W - 8}" fill="none" stroke-linecap="round"/>` : '';
+    const [nx, ny] = at(f), needle = ratio === null ? '' : `<line class="gauge-needle" x1="${cx}" y1="${cy}" x2="${(cx + (nx - cx) * 0.78).toFixed(2)}" y2="${(cy + (ny - cy) * 0.78).toFixed(2)}"/><circle class="gauge-hub" cx="${cx}" cy="${cy}" r="6"/>`;
+    return `<figure class="chart chart-gauge level-${esc(level)}"><svg viewBox="0 0 200 112" class="gauge" role="img" aria-label="${esc(caption)}">${zones}${value}${needle}</svg><div class="gauge-scale" aria-hidden="true"><span>${esc(min)}</span><span>${esc(max)}</span></div><figcaption class="gauge-center">${centerHtml}</figcaption></figure>`;
+  }
+
+  UI.chart = { bar, donut, gauge, CATEGORY_COLORS, SERIES, colorOf };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

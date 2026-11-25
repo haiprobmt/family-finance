@@ -49,13 +49,6 @@ function renderReminders() {
 // ---------- dashboard ----------
 function renderDashboardExtras() {
   const mk = monthKey(activeMonth);
-  const cutoff = mk >= fvToday().slice(0, 7) ? fvToday() : fvMonthEnd(mk);
-  const nw = FD.netWorth.netWorth({ assets: fvAssets(), valuations: fvValuations(), schedule: LOAN_SCHEDULE, debts: fvDebts(), cutoff });
-  $('#netWorthScope').textContent = 'Chốt ' + FD.money.dateLabel(cutoff) + (nw.gaps.length ? ' · ' + nw.gaps[0] : '');
-  $('#dashNetWorth').innerHTML =
-    C.metricCard({ label: 'Giá trị ròng', emphasis: true, state: nw.netWorth === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.netWorth, { compact: true, semantic: nw.netWorth < 0 ? 'expense' : null }), helperHtml: 'Tài sản − nợ cùng ngày chốt' }) +
-    C.metricCard({ label: 'Tổng tài sản', state: nw.assets.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.assets.total, { compact: true }), helperHtml: nw.assets.unknownCount ? `<span class="unknown">${nw.assets.unknownCount} tài sản chưa định giá</span>` : 'Theo tỷ lệ sở hữu' }) +
-    C.metricCard({ label: 'Tổng nợ', state: nw.liabilities.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.liabilities.total, { compact: true }), helperHtml: nw.liabilities.complete ? (nw.liabilities.debts.items.length ? 'Dư nợ vay + khoản nợ khác' : 'Dư nợ gốc theo lịch vay') : `<span class="unknown">Thiếu dư nợ ${escapeHtml(nw.liabilities.missing.join(', '))}</span>` });
   const u = fvBudgetUtil(mk), alerts = u.rows.filter(r => r.alert);
   $('#dashBudgetAlerts').innerHTML = (alerts.length ? `<ul class="reminder-list">${alerts.map(r => `<li class="reminder ${r.alert === 'over' ? 'over' : 'warn'}"><span>${C.badge(r.alert === 'over' ? 'Vượt' : '≥80%', r.alert === 'over' ? 'danger' : 'warning')} <b>${escapeHtml(fvLabel(r.id))}</b> ${r.alert === 'over' ? 'vượt ' + money(r.overBy) : 'đã dùng ' + fvPct(r.ratio)}</span></li>`).join('')}</ul>` : '<p class="text-sm muted">Chưa danh mục nào chạm ngưỡng 80%.</p>') + (u.loanIncomplete ? '<p class="text-sm unknown">Ngân sách trả nợ đang tạm tính vì thiếu lịch vay.</p>' : '');
 }
@@ -310,6 +303,109 @@ $('#debtForm').addEventListener('submit', e => {
   extStore.edit('debts', fvDebts().filter(x => x.id !== debt.id).concat(debt)); closeOverlay('#debtOverlay');
   fvAfterExtEdit(FV.editingDebtId ? 'Đã sửa khoản nợ' : 'Đã thêm khoản nợ');
 });
+// ---------- loan schedule editing (Loans sheet, action loan_save) ----------
+const LOAN_EDIT = { base: null, saving: false };
+const fvLoanRecord = (bank, month) => LOAN_SCHEDULE.records.find(r => r.bank === bank && r.month === month) || null;
+const fvLoanBase = r => (r ? { bank: r.bank, month: r.month, principal: r.principal, rate: r.rate, interest: r.interest, days: r.days } : null);
+function fvLoanInterest(principal, ratePct, days) { return Math.round(principal * (ratePct / 100) * days / FD.loan.DAY_COUNT); }
+// bank/month given → edit that schedule row (or fill a missing one); none → add a new loan.
+function fvOpenLoan(bank, month) {
+  const existing = bank ? fvLoanRecord(bank, month) : null, isNew = !bank;
+  LOAN_EDIT.base = fvLoanBase(existing);
+  const prev = bank ? LOAN_SCHEDULE.records.filter(r => r.bank === bank && r.month < month).sort((a, b) => b.month.localeCompare(a.month))[0] : null;
+  const seed = existing || prev || {};
+  const m = month || FD.money.shiftMonth(fvToday().slice(0, 7), 1);
+  $('#loanFormTitle').textContent = isNew ? 'Thêm khoản vay' : existing ? 'Sửa lịch vay · ' + bank + ' ' + fvMonthName(month) : 'Nhập lịch vay · ' + bank + ' ' + fvMonthName(month);
+  $('#loanBank').value = bank || ''; $('#loanBank').readOnly = !isNew;
+  $('#loanMonth').value = m; $('#loanMonth').readOnly = !isNew;
+  $('#loanMonthLabel').textContent = isNew ? 'Tháng đầu tiên' : 'Tháng';
+  $('#loanPrincipal').value = seed.principal !== undefined ? fvFmt(seed.principal) : '';
+  $('#loanRate').value = seed.rate !== undefined ? +(seed.rate * 100).toFixed(4) : '';
+  $('#loanDays').value = existing ? existing.days : FD.money.daysInMonth(m);
+  $('#loanPayment').value = existing ? fvFmt(existing.interest) : '';
+  $('#loanDelete').hidden = !existing;
+  $('#loanRepeatBox').hidden = !isNew; $('#loanRepeat').checked = false; $('#loanRepeatFields').hidden = true; $('#loanRepeatPreview').textContent = '';
+  $('#loanPaymentField').hidden = false;
+  $('#loanBankList').innerHTML = [...new Set(LOAN_SCHEDULE.records.map(r => r.bank))].map(b => `<option value="${escapeHtml(b)}"></option>`).join('');
+  openOverlay('#loanOverlay');
+  (isNew ? $('#loanBank') : $('#loanPrincipal')).focus();
+}
+function fvLoanForm() {
+  return { bank: $('#loanBank').value.trim(), month: $('#loanMonth').value, principal: parseDigits($('#loanPrincipal').value), ratePct: Number($('#loanRate').value), days: Math.trunc(Number($('#loanDays').value)), payment: parseDigits($('#loanPayment').value) };
+}
+// Multi-month schedule: principal falls by the monthly principal; payment = interest + principal paid.
+function fvLoanSeries(f) {
+  const n = Math.trunc(Number($('#loanRepeatMonths').value)), step = parseDigits($('#loanRepeatPrincipal').value), rows = [];
+  if (!(n >= 2 && n <= 360) || !(step >= 0)) return null;
+  let principal = f.principal, month = f.month;
+  for (let i = 0; i < n && principal > 0; i++) {
+    const days = FD.money.daysInMonth(month), paid = Math.min(step, principal);
+    rows.push({ bank: f.bank, month, principal, rate: f.ratePct / 100, interest: fvLoanInterest(principal, f.ratePct, days) + paid, days });
+    principal -= paid; month = FD.money.shiftMonth(month, 1);
+  }
+  return rows;
+}
+function fvLoanRepeatPreview() {
+  const on = $('#loanRepeat').checked;
+  $('#loanRepeatFields').hidden = !on; $('#loanPaymentField').hidden = on;
+  if (!on) { $('#loanRepeatPreview').textContent = ''; return; }
+  const f = fvLoanForm(), rows = f.month && f.principal > 0 && f.ratePct >= 0 ? fvLoanSeries(f) : null;
+  $('#loanRepeatPreview').textContent = rows && rows.length ? `Sẽ tạo ${rows.length} tháng (${fvMonthName(rows[0].month)} – ${fvMonthName(rows[rows.length - 1].month)}); tháng đầu phải trả ${money(rows[0].interest)}. Số ngày tính lãi theo từng tháng.` : 'Nhập dư nợ, lãi suất, số tháng (2–360) và gốc trả mỗi tháng.';
+}
+function fvLoanErrors(f) {
+  const e = [];
+  if (!f.bank || f.bank.length > 40 || /[|\t]/.test(f.bank)) e.push('tên khoản vay');
+  if (!FD.money.isMonthKey(f.month) || f.month < '2026-10') e.push('tháng (từ 10/2026)');
+  if (f.bank === 'Techcombank' && f.month >= '2026-11') e.push('Techcombank chỉ theo dõi đến 10/2026');
+  if (!(f.principal >= 0)) e.push('dư nợ');
+  if (!(f.ratePct >= 0 && f.ratePct <= 100)) e.push('lãi suất');
+  if (!(f.days >= 1 && f.days <= 31)) e.push('số ngày');
+  return e;
+}
+async function fvSaveLoanChanges(changes, done) {
+  if (!endpoint()) return showToast('Cần kết nối Google Sheets (Cài đặt) để lưu lịch vay');
+  if (LOAN_EDIT.saving) return;
+  LOAN_EDIT.saving = true; $('#loanSave').disabled = true; $('#loanDelete').disabled = true;
+  try {
+    const res = await nativeRequest({ action: 'loan_save', changes: JSON.stringify(changes) });
+    Object.assign(LOAN_SCHEDULE, res.loans); write('loans', LOAN_SCHEDULE);
+    closeOverlay('#loanOverlay'); render(); showToast(done);
+  } catch (error) {
+    const p = error.payload;
+    if (p && p.code === 'LOAN_CONFLICT' && p.loans) { Object.assign(LOAN_SCHEDULE, p.loans); write('loans', LOAN_SCHEDULE); closeOverlay('#loanOverlay'); render(); }
+    showToast(error.message || 'Không lưu được lịch vay');
+  } finally { LOAN_EDIT.saving = false; $('#loanSave').disabled = false; $('#loanDelete').disabled = false; }
+}
+$('#addLoanBtn').onclick = () => fvOpenLoan(null);
+$('#loanScheduleBody').addEventListener('click', e => { const b = e.target.closest('[data-loan-edit]'); if (b) fvOpenLoan(b.dataset.loanEdit, b.dataset.loanMonth); });
+$('#loanPrincipal').addEventListener('input', e => { e.target.value = e.target.value.trim() === '' ? '' : fvFmt(parseDigits(e.target.value)); });
+$('#loanPayment').addEventListener('input', e => { e.target.value = e.target.value.trim() === '' ? '' : fvFmt(parseDigits(e.target.value)); });
+$('#loanRepeatPrincipal').addEventListener('input', e => { e.target.value = fvFmt(parseDigits(e.target.value)); });
+$('#loanMonth').addEventListener('change', e => { if (FD.money.isMonthKey(e.target.value)) $('#loanDays').value = FD.money.daysInMonth(e.target.value); fvLoanRepeatPreview(); });
+for (const id of ['#loanRepeat', '#loanRepeatMonths', '#loanRepeatPrincipal', '#loanPrincipal', '#loanRate']) $(id).addEventListener('input', fvLoanRepeatPreview);
+$('#loanCalc').onclick = () => { const f = fvLoanForm(); if (!(f.principal >= 0) || !(f.ratePct >= 0) || !(f.days >= 1)) return showToast('Nhập dư nợ, lãi suất và số ngày trước'); $('#loanPayment').value = fvFmt(fvLoanInterest(f.principal, f.ratePct, f.days)); };
+$('#loanForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const f = fvLoanForm(), errors = fvLoanErrors(f);
+  if (errors.length) return showToast('Kiểm tra lại: ' + errors.join(', '));
+  if ($('#loanRepeat').checked && !$('#loanRepeatBox').hidden) {
+    const rows = fvLoanSeries(f);
+    if (!rows || !rows.length) return showToast('Kiểm tra số tháng và gốc trả mỗi tháng');
+    const clash = rows.filter(r => fvLoanRecord(r.bank, r.month));
+    if (clash.length && !confirm(`${clash.length} tháng đã có lịch ${f.bank} và sẽ được ghi đè. Tiếp tục?`)) return;
+    return fvSaveLoanChanges(rows.map(r => ({ op: 'upsert', row: r, base: fvLoanBase(fvLoanRecord(r.bank, r.month)) })), `Đã lưu ${rows.length} tháng lịch vay ${f.bank}`);
+  }
+  if ($('#loanPayment').value.trim() === '') return showToast('Nhập tiền phải trả tháng');
+  const row = { bank: f.bank, month: f.month, principal: f.principal, rate: f.ratePct / 100, interest: f.payment, days: f.days };
+  const base = LOAN_EDIT.base || fvLoanBase(fvLoanRecord(f.bank, f.month));
+  if (!LOAN_EDIT.base && base && !confirm(`${f.bank} ${fvMonthName(f.month)} đã có lịch. Ghi đè?`)) return;
+  fvSaveLoanChanges([{ op: 'upsert', row, base }], 'Đã lưu lịch vay ' + f.bank + ' ' + fvMonthName(f.month));
+});
+$('#loanDelete').onclick = () => {
+  const b = LOAN_EDIT.base; if (!b) return;
+  if (!confirm(`Xóa lịch ${b.bank} tháng ${fvMonthName(b.month)} khỏi Google Sheets?`)) return;
+  fvSaveLoanChanges([{ op: 'delete', row: { bank: b.bank, month: b.month }, base: b }], 'Đã xóa lịch vay ' + b.bank + ' ' + fvMonthName(b.month));
+};
 function fvOpenValuation(assetId) {
   FV.valuationAssetId = assetId; const a = fvAssets().find(x => x.id === assetId); if (!a) return;
   $('#valuationTitle').textContent = 'Định giá · ' + a.name; $('#valDate').value = fvToday(); $('#valValue').value = ''; $('#valSource').value = 'estimate'; $('#valNote').value = '';

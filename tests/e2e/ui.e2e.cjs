@@ -30,8 +30,10 @@ test('financial values on every migrated screen match the pre-redesign UI (same 
     const d = await w.device('P', { viewport: { width: 390, height: 844 } }); await w.connect(d); await seedExtras(w, d);
     const p = d.page, b = baseline;
     await go(d, 'home');
-    for (const id of ['expenseTotal', 'incomeTotal', 'remainingTotal']) assert.equal(await p.getAttribute('#' + id, 'aria-label'), b.home[id], id);
-    assert.equal((await p.textContent('#savingRate')).trim(), b.home.savingRate);
+    // Tổng quan shows spending by category first (the cash-flow and net-worth cards were removed).
+    assert.equal(await p.locator('#dashCashflow, #dashNetWorth').count(), 0, 'cash-flow and net-worth cards removed');
+    assert.equal(squash(await p.textContent('#expensePie .donut-center b')), squash('1,26 tr'), 'total spend ' + b.home.expenseTotal);
+    assert.equal(await p.evaluate(() => document.querySelector('#homeView .grid > .card').getAttribute('aria-labelledby')), 'compositionTitle', 'spending by category is the first card');
     assert.equal((await p.textContent('#debtSummary')).trim(), b.home.debtSummary);
     assert.equal((await p.textContent('#budgetCaption')).trim(), b.home.budgetCaption);
     const gauge = squash(await p.textContent('#budgetGauge'));
@@ -42,7 +44,7 @@ test('financial values on every migrated screen match the pre-redesign UI (same 
     assert.equal(await p.textContent('#cumulativeExpense'), b.dashboard.cumulativeExpense);
     assert.equal(await p.textContent('#accumulatedSavingsValue'), b.dashboard.savings);
     await go(d, 'loans');
-    const rows = await p.$$eval('#loanScheduleBody tr', trs => trs.slice(0, 8).map(r => r.innerText));
+    const rows = await p.$$eval('#loanScheduleBody tr', trs => trs.slice(0, 8).map(r => [...r.cells].slice(0, 5).map(c => c.innerText).join('\t')));
     assert.deepEqual(rows.map(squash), b.dashboard.loanRows.map(squash), 'loan schedule rows');
     await go(d, 'budget');
     const inputs = await p.$$eval('[data-budget]', els => Object.fromEntries(els.map(i => [i.dataset.budget, i.value || i.placeholder])));
@@ -50,9 +52,6 @@ test('financial values on every migrated screen match the pre-redesign UI (same 
     await go(d, 'assets');
     const nw = squash(await p.textContent('#netWorthSummary'));
     for (const v of ['1.500.000.000 ₫', '895.000.000 ₫', '605.000.000 ₫']) assert.ok(nw.includes(squash(v)), v);
-    await go(d, 'home');
-    const dashNw = squash(await p.textContent('#dashNetWorth'));
-    for (const v of ['605 tr', '1.500 tr', '895 tr']) assert.ok(dashNw.includes(squash(v)), 'compact ' + v + ' in ' + dashNw);
     assert.equal(await p.locator('#historyList [data-tx-id]').count(), b.historyCount, 'transaction count');
     assert.deepEqual(d.errors, []);
   } finally { await w.close(); }
