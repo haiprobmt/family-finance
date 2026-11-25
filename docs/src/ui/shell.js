@@ -9,7 +9,7 @@
     history: { slug: 'giao-dich', title: 'Giao dịch', group: 'history' },
     budget: { slug: 'ngan-sach', title: 'Ngân sách', group: 'budget' },
     assets: { slug: 'tai-san', title: 'Tài sản & Nợ', group: 'assets' },
-    loans: { slug: 'khoan-vay', title: 'Khoản vay', group: 'assets' },
+    loans: { slug: 'khoan-vay', title: 'Khoản vay', group: 'more' },
     plan: { slug: 'lich', title: 'Lịch tài chính', group: 'more' },
     ai: { slug: 'ai-advisor', title: 'AI Advisor', group: 'more' },
     reports: { slug: 'bao-cao', title: 'Báo cáo', group: 'more' },

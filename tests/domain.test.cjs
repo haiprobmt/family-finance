@@ -104,6 +104,34 @@ test('assets/net worth: latest valuation by cut-off, ownership share, unknown va
   assert.equal(none.assets.total, null, 'no assets → asset total unknown, not 0');
 });
 
+test('debts entered by hand add to scheduled loans; unknown balance is never zero', () => {
+  const schedule = syn.loanSchedule();
+  const assets = [{ id: 'cash', type: 'cash', name: 'Tiền mặt', currency: 'VND', currentValue: 2e9, valuationDate: '2026-01-01', ownershipShare: 1, status: 'active' }];
+  const debts = [
+    { id: 'd1', type: 'personal', name: 'Vay anh Hai', currency: 'VND', balance: 5e7, balanceDate: '2026-10-01', startDate: '2026-01-01', status: 'active', paidDate: '', notes: '' },
+    { id: 'd2', type: 'credit-card', name: 'Thẻ tín dụng', currency: 'VND', balance: 1e7, balanceDate: '2026-10-15', startDate: '', status: 'paid', paidDate: '2026-11-10', notes: '' },
+    { id: 'd3', type: 'installment', name: 'Trả góp xe', currency: 'VND', balance: 3e7, balanceDate: '2026-12-01', startDate: '2026-12-01', status: 'active', paidDate: '', notes: '' }
+  ];
+  for (const d of debts) assert.deepEqual(plain(D.netWorth.validateDebt(d)), [], d.id);
+  assert.ok(D.netWorth.validateDebt({ ...debts[0], balance: -1 }).includes('balance'));
+  assert.ok(D.netWorth.validateDebt({ ...debts[0], balanceDate: '' }).includes('balanceDate'));
+  assert.ok(D.netWorth.validateDebt({ ...debts[0], status: 'paid', paidDate: '' }).includes('paidDate'), 'paid needs a payoff date');
+  assert.ok(D.netWorth.validateDebt({ ...debts[0], name: ' ' }).includes('name'));
+  const loansOnly = D.netWorth.netWorth({ assets, valuations: [], schedule, cutoff: '2026-10-31' });
+  const oct = D.netWorth.netWorth({ assets, valuations: [], schedule, debts, cutoff: '2026-10-31' });
+  assert.deepEqual(oct.liabilities.debts.items.map(i => i.id), ['d1', 'd2'], 'd3 starts in December');
+  assert.equal(oct.liabilities.total, loansOnly.liabilities.total + 5e7 + 1e7);
+  assert.equal(oct.netWorth, loansOnly.netWorth - 6e7);
+  const nov = D.netWorth.netWorth({ assets, valuations: [], schedule, debts, cutoff: '2026-11-30' });
+  assert.deepEqual(nov.liabilities.debts.items.map(i => i.id), ['d1'], 'card paid off on 10/11');
+  const sep = D.netWorth.netWorth({ assets, valuations: [], schedule, debts, cutoff: '2026-09-30' });
+  assert.equal(sep.liabilities.debts.items.find(i => i.id === 'd1').unknown, true, 'balance recorded only from 01/10 → unknown before, not backfilled');
+  assert.equal(sep.liabilities.total, null);
+  assert.equal(sep.netWorth, null);
+  assert.ok(sep.gaps.some(g => /khoản nợ chưa có số dư/.test(g)));
+  assert.equal(D.netWorth.debtPosition([], '2026-10-31').total, 0, 'no extra debts is a confirmed zero');
+});
+
 const rule = (over = {}) => ({ id: 'rent', type: 'Expense', amount: 5000000, category: 'home', person: 'Gia đình', note: 'Tiền nhà', cadence: 'monthly', interval: 1, startDate: '2027-01-31', endDate: '', status: 'active', skipped: [], ...over });
 
 test('recurring: deterministic idempotent occurrences, month-end clamp, statuses, planned ≠ actual', () => {

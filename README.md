@@ -21,8 +21,9 @@ The published folder is `docs/`; `apps-script/` is backend source, not a hosted 
    separate files in `apps-script/`; never use both.) Ideally try it on a copy of the spreadsheet first.
    Keep existing `FAMILY_ACCESS_TOKEN` and `DEEPSEEK_API_KEY` Script Properties.
    Never put either value in this repository, an issue, or a URL.
-   Optional 3.0 features (assets, recurring rules): in the editor run `migrationsDryRun`,
-   review, then `migrationsApply`. It only adds new sheets; existing sheets are never changed.
+   New sheets for 3.0 features (assets, recurring rules, debts) are created automatically on the
+   app's next sync; they are only ever added, existing sheets are never changed.
+   (`migrationsDryRun` in the editor shows what would be added.)
 3. Deploy → Manage deployments → **Edit (pencil) on the existing deployment** → Version: **New version** → Deploy.
    Editing the existing deployment keeps the same `/exec` URL, so the APK and both phones keep syncing
    without any change; creating a *new* deployment would change the URL.
@@ -36,13 +37,51 @@ The published folder is `docs/`; `apps-script/` is backend source, not a hosted 
 APK local drafts and settings do not automatically transfer into the browser.
 Once synced, transactions and budgets are shared through the same spreadsheet.
 
+## Automatic Apps Script updates
+
+After a one-time setup, every push to `main` that changes the backend is deployed by the
+**Deploy Apps Script** GitHub workflow (`.github/workflows/deploy-apps-script.yml`): it runs the
+tests, uploads `apps-script/dist/Code.gs`, moves your **existing** deployment to the new version
+(same `/exec` URL, so the APK and phones need nothing) and checks that the web app answers with the
+new build. New sheets are then added by the backend on the next sync. The web app and the Android
+app already update themselves from GitHub Pages.
+
+One-time setup (about 10 minutes, on a computer):
+
+1. Turn on **Google Apps Script API** at <https://script.google.com/home/usersettings>
+   (signed in with the Google account that owns the spreadsheet).
+2. Install [Node.js](https://nodejs.org) (LTS). In a terminal (PowerShell on Windows) run
+   `npx @google/clasp@3.4.1 login` and sign in with that same account. This creates the file
+   `.clasprc.json` in your user folder (`C:\Users\<you>\.clasprc.json` on Windows).
+3. Collect two IDs in the Apps Script editor:
+   - **Script ID**: ⚙ Project Settings → IDs → Script ID.
+   - **Deployment ID**: Deploy → Manage deployments → the active deployment → Deployment ID
+     (the part of your `/exec` URL between `/s/` and `/exec`).
+4. On GitHub: repository **Settings → Secrets and variables → Actions → New repository secret**,
+   add three secrets:
+   - `CLASPRC_JSON`: the whole content of `.clasprc.json`
+   - `APPS_SCRIPT_ID`: the Script ID
+   - `APPS_SCRIPT_DEPLOYMENT_ID`: the Deployment ID
+5. **Actions → Deploy Apps Script → Run workflow** for the first deploy. If the last step says
+   the web app does not answer, open the Apps Script editor once, choose the function `setup`,
+   press **Run** and **Allow** the permissions, then run the workflow again.
+
+`CLASPRC_JSON` lets its holder manage the Apps Script projects of that Google account: keep it
+only in GitHub Secrets (pull requests and forks never receive it) and delete your local
+`.clasprc.json` afterwards if you like. To revoke it, remove the clasp app at
+<https://myaccount.google.com/permissions>. The workflow replaces every file in the Apps Script
+project with `Code.gs` + `appsscript.json`; Script Properties (token, API key) are not touched.
+Until the secrets exist the workflow only prints a warning and changes nothing.
+
 ## Family Finance 3.0 features
 
 - **Dashboard 2.0:** actual cash flow (tap a figure to see its source transactions), net worth,
   budget alerts and a clearly labelled 3-month forecast.
 - **Tài sản & nợ:** asset register with valuation history, net worth at a chosen date
   (shown only when assets and loan balances are complete), loan interest vs principal, and a
-  repayment simulator that lists its assumptions.
+  repayment simulator that lists its assumptions. **Thêm nợ** records debts outside the Loans
+  sheet (relatives, credit cards, instalments) in a `Debts` sheet; they count toward total debt.
+  The `Debts` sheet is added automatically on the first sync after the backend update.
 - **Kế hoạch & lịch:** recurring income/expenses, 60-day calendar, reminders. A planned item
   becomes a transaction only when you confirm it (safe to confirm twice or on two phones).
 - **Budget tracking:** 80%/100% thresholds and month-over-month change; planned items shown separately.

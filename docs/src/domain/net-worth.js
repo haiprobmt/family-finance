@@ -8,6 +8,11 @@
   const ASSET_STATUSES = ['active', 'sold', 'closed'];
   const SOURCE_TYPES = ['estimate', 'statement', 'appraisal', 'market'];
   const SOURCE_LABELS = { estimate: 'Ước tính', statement: 'Sao kê', appraisal: 'Thẩm định', market: 'Giá thị trường' };
+  // Debts entered by hand (owed to relatives, credit cards, instalments…). Bank loans with a
+  // schedule stay in the Loans sheet; these are added on top of them.
+  const DEBT_TYPES = ['personal', 'credit-card', 'installment', 'other'];
+  const DEBT_TYPE_LABELS = { personal: 'Vay người thân/bạn bè', 'credit-card': 'Thẻ tín dụng', installment: 'Trả góp', other: 'Khác' };
+  const DEBT_STATUSES = ['active', 'paid'];
 
   const text = (v, max) => typeof v === 'string' && v.length <= max;
   const optDate = v => v === '' || v === undefined || v === null || D.money.isDateKey(v);
@@ -43,6 +48,23 @@
     return e;
   }
 
+  function validateDebt(d) {
+    const e = [];
+    if (!d || typeof d !== 'object') return ['debt'];
+    if (!text(d.id, 100) || !d.id) e.push('id');
+    if (!DEBT_TYPES.includes(d.type)) e.push('type');
+    if (!text(d.name, 120) || !d.name.trim()) e.push('name');
+    if ((d.currency || 'VND') !== 'VND') e.push('currency');
+    if (!(typeof d.balance === 'number' && Number.isFinite(d.balance) && d.balance >= 0 && d.balance <= D.money.MAX_AMOUNT)) e.push('balance');
+    if (!D.money.isDateKey(d.balanceDate)) e.push('balanceDate');
+    if (!optDate(d.startDate)) e.push('startDate');
+    if (!DEBT_STATUSES.includes(d.status || 'active')) e.push('status');
+    if (!optDate(d.paidDate)) e.push('paidDate');
+    if ((d.status || 'active') === 'paid' && !d.paidDate) e.push('paidDate');
+    if (d.notes !== undefined && !text(d.notes, 500)) e.push('notes');
+    return e;
+  }
+
   function heldAt(asset, cutoff) {
     if (asset.acquisitionDate && asset.acquisitionDate > cutoff) return false;
     const status = asset.status || 'active';
@@ -65,17 +87,41 @@
     // No registered assets is unknown (not a confirmed zero), like an unvalued asset.
     return { cutoff, items, total: unknown.length || !items.length ? null : items.reduce((s, i) => s + i.value, 0), knownTotal: items.reduce((s, i) => s + (i.value || 0), 0), unknownCount: unknown.length };
   }
+  // A debt is owed at the cut-off from its start date until it is paid off. Its balance is known
+  // only from balanceDate on: an earlier cut-off is unknown (never backfilled, never zero).
+  function owedAt(debt, cutoff) {
+    if (debt.startDate && debt.startDate > cutoff) return false;
+    if ((debt.status || 'active') === 'paid') return !!debt.paidDate && debt.paidDate > cutoff;
+    return true;
+  }
+  function debtPosition(debts, cutoff) {
+    const items = debts.filter(d => owedAt(d, cutoff)).map(d => {
+      const known = d.balanceDate <= cutoff;
+      return { id: d.id, name: d.name, type: d.type, balanceDate: d.balanceDate, value: known ? d.balance : null, unknown: !known };
+    });
+    const unknown = items.filter(i => i.unknown);
+    // No other debts is a confirmed zero (unlike assets): debts are optional extras on top of loans.
+    return { cutoff, items, total: unknown.length ? null : items.reduce((s, i) => s + i.value, 0), knownTotal: items.reduce((s, i) => s + (i.value || 0), 0), unknownCount: unknown.length };
+  }
+  // Liabilities = scheduled bank loans (Loans sheet) + debts entered by hand, at the same cut-off.
+  function liabilitiesAt({ schedule, debts = [], cutoff }) {
+    const loans = schedule ? D.loan.liabilityAt(schedule, cutoff.slice(0, 7)) : { complete: false, total: null, knownTotal: 0, missing: ['schedule'], items: [] };
+    const other = debtPosition(debts, cutoff);
+    const complete = loans.complete && !other.unknownCount;
+    return { items: loans.items, loans, debts: other, complete, missing: loans.missing.concat(other.items.filter(i => i.unknown).map(i => i.name)), knownTotal: loans.knownTotal + other.knownTotal, total: complete ? loans.total + other.total : null };
+  }
   // Net worth = assets - liabilities at the same cut-off. Null unless both sides are complete.
-  function netWorth({ assets = [], valuations = [], schedule, cutoff }) {
+  function netWorth({ assets = [], valuations = [], schedule, debts = [], cutoff }) {
     const a = assetPosition(assets, valuations, cutoff);
-    const l = schedule ? D.loan.liabilityAt(schedule, cutoff.slice(0, 7)) : { complete: false, total: null, knownTotal: 0, missing: ['schedule'], items: [] };
+    const l = liabilitiesAt({ schedule, debts, cutoff });
     const gaps = [];
     if (!a.items.length) gaps.push('Chưa có tài sản nào được ghi nhận.');
     if (a.unknownCount) gaps.push(a.unknownCount + ' tài sản chưa có định giá đến ngày ' + D.money.dateLabel(cutoff) + '.');
-    if (!l.complete) gaps.push('Thiếu dư nợ ' + l.missing.join(', ') + ' tháng ' + D.money.monthLabel(cutoff.slice(0, 7)) + '.');
+    if (!l.loans.complete) gaps.push('Thiếu dư nợ ' + l.loans.missing.join(', ') + ' tháng ' + D.money.monthLabel(cutoff.slice(0, 7)) + '.');
+    if (l.debts.unknownCount) gaps.push(l.debts.unknownCount + ' khoản nợ chưa có số dư đến ngày ' + D.money.dateLabel(cutoff) + '.');
     const complete = !gaps.length;
     return { cutoff, assets: a, liabilities: l, complete, gaps, netWorth: complete ? a.total - l.total : null };
   }
 
-  D.netWorth = { ASSET_TYPES, ASSET_TYPE_LABELS, ASSET_STATUSES, SOURCE_TYPES, SOURCE_LABELS, validateAsset, validateValuation, heldAt, latestValuation, assetPosition, netWorth };
+  D.netWorth = { ASSET_TYPES, ASSET_TYPE_LABELS, ASSET_STATUSES, SOURCE_TYPES, SOURCE_LABELS, DEBT_TYPES, DEBT_TYPE_LABELS, DEBT_STATUSES, validateAsset, validateValuation, validateDebt, heldAt, latestValuation, assetPosition, owedAt, debtPosition, liabilitiesAt, netWorth };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

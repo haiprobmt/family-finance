@@ -45,6 +45,66 @@ test('assets sync across devices, net worth computed, stale edit surfaces COLLEC
   } finally { await w.close(); }
 });
 
+test('Thêm nợ: a debt entered on the Tài sản page syncs to the Debts sheet and lowers net worth', async () => {
+  const w = await createWorld({ now: NOW, migrate: true });
+  try {
+    const a = await w.device('A'), b = await w.device('B');
+    await w.connect(a); await w.connect(b);
+    await addAsset(a, { name: 'Tài khoản mẫu', value: 2000000000 });
+    await go(a, 'assets');
+    assert.equal(await a.page.locator('#assetsView .subnav, #assetsView a[href="#/khoan-vay"]').count(), 0, 'no Khoản vay tab or link on Tài sản');
+    await a.page.click('#addDebtBtn');
+    await a.page.waitForSelector('#debtOverlay.open');
+    await a.page.selectOption('#debtType', 'personal');
+    await a.page.fill('#debtName', 'Vay anh Hai');
+    await a.page.fill('#debtBalance', '50000000');
+    assert.equal(await a.page.inputValue('#debtBalance'), '50.000.000', 'amount formatted while typing');
+    await a.page.click('#debtForm .submit-entry');
+    await a.page.waitForFunction(() => { const c = JSON.parse(localStorage.getItem('ffpages:ext_cache_v1')).collections.debts; return c.values.length === 1 && c.pending === null; });
+    const rows = w.sheetRows('Debts');
+    assert.equal(rows.length, 2); assert.equal(rows[1][2], 'Vay anh Hai'); assert.equal(rows[1][4], 50000000);
+    const shinhan = syn.loanSchedule().records.find(r => r.bank === 'Shinhan' && r.month === '2026-11').principal;
+    const fmt = n => new Intl.NumberFormat('vi-VN').format(n);
+    assert.match(await a.page.textContent('#liabilitySummary'), /Vay anh Hai/);
+    assert.match(await a.page.textContent('#netWorthSummary'), new RegExp(fmt(2000000000 - shinhan - 50000000)));
+    // The other phone sees it after syncing, then edits it to paid off.
+    await w.syncNow(b); await go(b, 'assets');
+    assert.match(await b.page.textContent('#liabilitySummary'), /Vay anh Hai/);
+    await b.page.click('[data-action="edit-debt"]');
+    await b.page.waitForSelector('#debtOverlay.open');
+    assert.equal(await b.page.inputValue('#debtName'), 'Vay anh Hai');
+    await b.page.selectOption('#debtStatus', 'paid');
+    assert.equal(await b.page.inputValue('#debtPaid'), '2026-11-24', 'payoff date defaults to today');
+    await b.page.click('#debtForm .submit-entry');
+    await b.page.waitForFunction(() => JSON.parse(localStorage.getItem('ffpages:ext_cache_v1')).collections.debts.pending === null);
+    assert.equal(w.sheetRows('Debts')[1][7], 'paid');
+    assert.match(await b.page.textContent('#liabilitySummary'), /Không nợ tại ngày chốt/);
+    assert.match(await b.page.textContent('#netWorthSummary'), new RegExp(fmt(2000000000 - shinhan)));
+    assert.deepEqual([...a.errors, ...b.errors], []);
+  } finally { await w.close(); }
+});
+
+test('Thêm nợ on an older Code.gs: kept on the device, banner says to update Apps Script, other data still syncs', async () => {
+  const w = await createWorld({ now: NOW, migrate: true });
+  try {
+    // The previous 3.0 deployment: same backend without the debts collection.
+    require('vm').runInContext('delete EXT_COLLECTIONS.debts', w.backend.context);
+    const a = await w.device('A'); await w.connect(a);
+    await go(a, 'assets');
+    await a.page.click('#addDebtBtn');
+    await a.page.fill('#debtName', 'Vay mẫu');
+    await a.page.fill('#debtBalance', '1000000');
+    await a.page.click('#debtForm .submit-entry');
+    await a.page.waitForFunction(() => /chưa có bản mới/.test(document.querySelector('#extBanner').textContent));
+    assert.match(await a.page.textContent('#liabilitySummary'), /Vay mẫu/, 'debt still counted on this device');
+    await addAsset(a, { name: 'Tài khoản mẫu', value: 1000000 });
+    await a.page.waitForFunction(() => JSON.parse(localStorage.getItem('ffpages:ext_cache_v1')).collections.assets.pending === null);
+    assert.equal(w.sheetRows('Assets').length, 2, 'assets keep syncing');
+    assert.equal(w.sheetRows('Debts').length, 1, 'nothing written for debts by the old backend');
+    assert.deepEqual(a.errors, []);
+  } finally { await w.close(); }
+});
+
 test('recurring rule: planned stays out of actuals, confirmation is idempotent across devices, skip persists', async () => {
   const w = await createWorld({ now: NOW, migrate: true });
   try {
@@ -160,7 +220,7 @@ test('service worker caches only allowlisted static files and serves the shell o
     await d.page.goto(w.base);
     await d.page.evaluate(() => navigator.serviceWorker.ready);
     const cached = await d.page.evaluate(async () => { const out = []; for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) out.push(r.url); return { keys: await caches.keys(), urls: out }; });
-    assert.deepEqual(cached.keys, ['family-finance-pages-v6']);
+    assert.deepEqual(cached.keys, ['family-finance-pages-v8']);
     assert.ok(cached.urls.length >= 30);
     assert.ok(cached.urls.every(u => u.startsWith(w.base)), 'no third-party or API responses cached');
     await d.context.setOffline(true);

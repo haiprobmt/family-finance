@@ -3,12 +3,13 @@
 // (deterministic, tested); persistence goes through extStore / the existing transaction
 // pipeline. Actual, planned, scheduled and forecast values are labelled and never summed together.
 const FD = FFDomain;
-const FV = { cutoff: null, forecastMonths: 6, editingAssetId: null, valuationAssetId: null, editingRuleId: null, simulationKey: '' };
+const FV = { cutoff: null, forecastMonths: 6, editingAssetId: null, editingDebtId: null, valuationAssetId: null, editingRuleId: null, simulationKey: '' };
 const fvToday = () => dateISO();
 const fvUid = prefix => prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const fvAssets = () => extStore.values('assets');
 const fvValuations = () => extStore.values('valuations');
 const fvRules = () => extStore.values('recurring');
+const fvDebts = () => extStore.values('debts');
 const fvLabel = id => FD.budget.LABELS[id] || 'Khác';
 const fvPct = r => (r === null || r === undefined ? '—' : Math.round(r * 100) + '%');
 const fvMonthName = m => FD.money.monthLabel(m);
@@ -49,12 +50,12 @@ function renderReminders() {
 function renderDashboardExtras() {
   const mk = monthKey(activeMonth);
   const cutoff = mk >= fvToday().slice(0, 7) ? fvToday() : fvMonthEnd(mk);
-  const nw = FD.netWorth.netWorth({ assets: fvAssets(), valuations: fvValuations(), schedule: LOAN_SCHEDULE, cutoff });
+  const nw = FD.netWorth.netWorth({ assets: fvAssets(), valuations: fvValuations(), schedule: LOAN_SCHEDULE, debts: fvDebts(), cutoff });
   $('#netWorthScope').textContent = 'Chốt ' + FD.money.dateLabel(cutoff) + (nw.gaps.length ? ' · ' + nw.gaps[0] : '');
   $('#dashNetWorth').innerHTML =
     C.metricCard({ label: 'Giá trị ròng', emphasis: true, state: nw.netWorth === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.netWorth, { compact: true, semantic: nw.netWorth < 0 ? 'expense' : null }), helperHtml: 'Tài sản − nợ cùng ngày chốt' }) +
     C.metricCard({ label: 'Tổng tài sản', state: nw.assets.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.assets.total, { compact: true }), helperHtml: nw.assets.unknownCount ? `<span class="unknown">${nw.assets.unknownCount} tài sản chưa định giá</span>` : 'Theo tỷ lệ sở hữu' }) +
-    C.metricCard({ label: 'Tổng nợ', state: nw.liabilities.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.liabilities.total, { compact: true }), helperHtml: nw.liabilities.complete ? 'Dư nợ gốc theo lịch vay' : `<span class="unknown">Thiếu dư nợ ${escapeHtml(nw.liabilities.missing.join(', '))}</span>` });
+    C.metricCard({ label: 'Tổng nợ', state: nw.liabilities.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.liabilities.total, { compact: true }), helperHtml: nw.liabilities.complete ? (nw.liabilities.debts.items.length ? 'Dư nợ vay + khoản nợ khác' : 'Dư nợ gốc theo lịch vay') : `<span class="unknown">Thiếu dư nợ ${escapeHtml(nw.liabilities.missing.join(', '))}</span>` });
   const u = fvBudgetUtil(mk), alerts = u.rows.filter(r => r.alert);
   $('#dashBudgetAlerts').innerHTML = (alerts.length ? `<ul class="reminder-list">${alerts.map(r => `<li class="reminder ${r.alert === 'over' ? 'over' : 'warn'}"><span>${C.badge(r.alert === 'over' ? 'Vượt' : '≥80%', r.alert === 'over' ? 'danger' : 'warning')} <b>${escapeHtml(fvLabel(r.id))}</b> ${r.alert === 'over' ? 'vượt ' + money(r.overBy) : 'đã dùng ' + fvPct(r.ratio)}</span></li>`).join('')}</ul>` : '<p class="text-sm muted">Chưa danh mục nào chạm ngưỡng 80%.</p>') + (u.loanIncomplete ? '<p class="text-sm unknown">Ngân sách trả nợ đang tạm tính vì thiếu lịch vay.</p>' : '');
 }
@@ -93,7 +94,9 @@ function fvExtBanner() {
   const st = extStore.state(), notes = [];
   if (!endpoint()) notes.push('Chưa kết nối Google Sheets: tài sản và khoản định kỳ đang lưu trên máy này.');
   else if (st.supported === false) notes.push('Apps Script đang chạy chưa có tính năng Tài sản/Định kỳ (cần triển khai Code.gs 3.0). Dữ liệu đang chỉ lưu trên máy này.');
-  else if (FFExt.NAMES.some(n => extStore.collection(n).available === false)) notes.push('Google Sheets chưa được bật tính năng này (chủ sở hữu cần chạy migrationsApply). Dữ liệu đang chỉ lưu trên máy này.');
+  else if (FFExt.NAMES.some(n => extStore.collection(n).outdated)) notes.push('Apps Script trên Google chưa có bản mới nên chưa đồng bộ được khoản nợ nhập tay. Bản mới được GitHub tự triển khai (workflow “Deploy Apps Script”, xem README). Khoản nợ đang chỉ lưu trên máy này.');
+  else if (st.migrationError) notes.push(st.migrationError + ' Dữ liệu đang chỉ lưu trên máy này.');
+  else if (FFExt.NAMES.some(n => extStore.collection(n).available === false)) notes.push('Google Sheets chưa được bật tính năng này (chạy migrationsApply trong Apps Script). Dữ liệu đang chỉ lưu trên máy này.');
   if (st.lastError) notes.push('Lỗi đồng bộ gần nhất: ' + st.lastError);
   $('#extBanner').hidden = !notes.length;
   $('#extBanner').innerHTML = notes.length ? C.alert({ variant: st.lastError ? 'danger' : 'warning', title: 'Dữ liệu chưa đồng bộ đầy đủ', bodyHtml: notes.map(n => `<p>${escapeHtml(n)}</p>`).join('') }) : '';
@@ -107,8 +110,8 @@ function renderAssets() {
   fvExtBanner();
   if (!FV.cutoff) FV.cutoff = fvToday();
   $('#netWorthCutoff').value = FV.cutoff;
-  const nw = FD.netWorth.netWorth({ assets: fvAssets(), valuations: fvValuations(), schedule: LOAN_SCHEDULE, cutoff: FV.cutoff });
-  $('#netWorthSummary').innerHTML = `<div class="metric-grid metric-grid-3">${C.metricCard({ label: 'Tài sản (theo tỷ lệ sở hữu)', state: nw.assets.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.assets.total), helperHtml: nw.assets.unknownCount ? 'Đã biết: ' + money(nw.assets.knownTotal) : 'Định giá gần nhất' })}${C.metricCard({ label: 'Dư nợ vay', state: nw.liabilities.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.liabilities.total), helperHtml: !nw.liabilities.complete && nw.liabilities.knownTotal ? 'Đã biết: ' + money(nw.liabilities.knownTotal) : 'Theo lịch vay tháng ' + fvMonthName(FV.cutoff.slice(0, 7)) })}${C.metricCard({ label: 'Giá trị ròng', emphasis: true, state: nw.netWorth === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.netWorth, { semantic: nw.netWorth < 0 ? 'expense' : null }), helperHtml: 'Tài sản − nợ' })}</div>${nw.gaps.length ? '<ul class="gaps">' + nw.gaps.map(g => `<li>${escapeHtml(g)}</li>`).join('') + '</ul>' : ''}`;
+  const nw = FD.netWorth.netWorth({ assets: fvAssets(), valuations: fvValuations(), schedule: LOAN_SCHEDULE, debts: fvDebts(), cutoff: FV.cutoff });
+  $('#netWorthSummary').innerHTML = `<div class="metric-grid metric-grid-3">${C.metricCard({ label: 'Tài sản (theo tỷ lệ sở hữu)', state: nw.assets.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.assets.total), helperHtml: nw.assets.unknownCount ? 'Đã biết: ' + money(nw.assets.knownTotal) : 'Định giá gần nhất' })}${C.metricCard({ label: 'Tổng nợ', state: nw.liabilities.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.liabilities.total), helperHtml: !nw.liabilities.complete && nw.liabilities.knownTotal ? 'Đã biết: ' + money(nw.liabilities.knownTotal) : 'Vay theo lịch tháng ' + fvMonthName(FV.cutoff.slice(0, 7)) + (nw.liabilities.debts.items.length ? ' + nợ khác' : '') })}${C.metricCard({ label: 'Giá trị ròng', emphasis: true, state: nw.netWorth === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.netWorth, { semantic: nw.netWorth < 0 ? 'expense' : null }), helperHtml: 'Tài sản − nợ' })}</div>${nw.gaps.length ? '<ul class="gaps">' + nw.gaps.map(g => `<li>${escapeHtml(g)}</li>`).join('') + '</ul>' : ''}`;
   fvConflictBanner('#assetConflict', ['assets', 'valuations'], 'Tài sản hoặc định giá');
   const items = new Map(nw.assets.items.map(i => [i.id, i]));
   $('#assetList').innerHTML = C.dataTable({ caption: 'Danh sách tài sản', rows: fvAssets(), emptyHtml: C.emptyState({ title: 'Chưa có tài sản', text: 'Thêm tài khoản, tiền mặt, nhà, xe hoặc đầu tư để tính giá trị ròng.', iconName: 'assets', actionHtml: C.button({ label: 'Thêm tài sản', variant: 'primary', iconName: 'plus', attrs: { 'data-action': 'add-asset' } }) }), columns: [
@@ -118,10 +121,23 @@ function renderAssets() {
     { key: 'val', label: 'Định giá', render: a => { const v = items.get(a.id)?.valuation; return v ? `${escapeHtml(FD.money.dateLabel(v.date))}<small>${escapeHtml(FD.netWorth.SOURCE_LABELS[v.source] || v.source)}</small>` : '—'; } },
     { key: 'actions', label: 'Thao tác', render: a => `<span class="row-actions">${fvSmallBtn('Định giá', { 'data-action': 'value-asset', 'data-id': a.id })}${fvSmallBtn('Sửa', { 'data-action': 'edit-asset', 'data-id': a.id }, 'ghost')}${C.button({ label: 'Xóa', variant: 'ghost', size: 'sm', cls: 'danger-text', attrs: { 'data-action': 'delete-asset', 'data-id': a.id, 'aria-label': 'Xóa ' + a.name } })}</span>` }
   ] });
-  const l = FD.loan.liabilityAt(LOAN_SCHEDULE, FV.cutoff.slice(0, 7));
-  $('#liabilitySummary').innerHTML = C.kv(l.items.map(i => [i.bank, i.missing ? '<span class="unknown">Thiếu dữ liệu</span>' : C.money(i.principal)]).concat([['Tổng nợ', l.complete ? `<b>${C.money(l.total)}</b>` : '<span class="unknown">Chưa đủ dữ liệu</span>']]));
+  fvConflictBanner('#debtConflict', ['debts'], 'Khoản nợ');
+  $('#liabilitySummary').innerHTML = fvLiabilityMarkup(nw.liabilities);
   renderLoanPosition();
   fvSimulatorOptions();
+}
+// Liabilities card: scheduled bank loans (read-only, from the Loans sheet) + debts entered by hand.
+function fvLiabilityMarkup(l) {
+  const loans = l.loans.items.length ? '<h3 class="list-heading">Khoản vay ngân hàng</h3>' + C.kv(l.loans.items.map(i => [i.bank, i.missing ? '<span class="unknown">Thiếu dữ liệu</span>' : C.money(i.principal)])) : '';
+  const owed = new Map(l.debts.items.map(i => [i.id, i]));
+  const debts = fvDebts().slice().sort((a, b) => (a.status === 'paid') - (b.status === 'paid') || a.name.localeCompare(b.name, 'vi'));
+  const debtRows = debts.map(d => {
+    const p = owed.get(d.id), sub = [FD.netWorth.DEBT_TYPE_LABELS[d.type] || d.type, d.status === 'paid' ? 'đã trả hết ' + FD.money.dateLabel(d.paidDate) : ''].filter(Boolean).join(' · ');
+    const value = p ? (p.unknown ? '<span class="unknown">Chưa có số dư</span>' : C.money(p.value)) : '<span class="muted">Không nợ tại ngày chốt</span>';
+    return `<article class="item${d.status === 'paid' ? ' paused' : ''}"><div class="item-main"><b>${escapeHtml(d.name)}</b><span>${escapeHtml(sub)}</span></div><div class="item-value">${value}<small>Số dư ${escapeHtml(FD.money.dateLabel(d.balanceDate))}</small></div><div class="row-actions">${fvSmallBtn('Sửa', { 'data-action': 'edit-debt', 'data-id': d.id, 'aria-label': 'Sửa ' + d.name })}${C.button({ label: 'Xóa', variant: 'ghost', size: 'sm', cls: 'danger-text', attrs: { 'data-action': 'delete-debt', 'data-id': d.id, 'aria-label': 'Xóa ' + d.name } })}</div></article>`;
+  }).join('');
+  const others = '<h3 class="list-heading">Khoản nợ khác</h3>' + (debtRows ? `<div class="item-list">${debtRows}</div>` : '<p class="text-sm muted">Chưa có. Bấm “Thêm nợ” để ghi nợ người thân, thẻ tín dụng, trả góp…</p>');
+  return loans + others + C.kv([['Tổng nợ', l.complete ? `<b>${C.money(l.total)}</b>` : '<span class="unknown">Chưa đủ dữ liệu</span>']], 'liability-total');
 }
 function renderLoanPosition() {
   const month = FV.cutoff.slice(0, 7), s = homeLoanSummary(month), l = FD.loan.liabilityAt(LOAN_SCHEDULE, month);
@@ -183,7 +199,7 @@ function renderPlan() {
 function renderSyncDiagnostics() {
   const st = syncState(), ops = operations(), counts = {};
   ops.forEach(o => { counts[o.entityType] = (counts[o.entityType] || 0) + 1; });
-  $('#syncDiagnostics').textContent = 'Trạng thái: ' + st.label + (ops.length ? ' · Chờ gửi: ' + Object.entries(counts).map(([k, v]) => v + ' ' + ({ transaction: 'giao dịch', budgets: 'ngân sách', assets: 'tài sản', valuations: 'định giá', recurring: 'định kỳ' }[k] || k)).join(', ') : '') + (st.error ? ' · Lỗi: ' + st.error : '');
+  $('#syncDiagnostics').textContent = 'Trạng thái: ' + st.label + (ops.length ? ' · Chờ gửi: ' + Object.entries(counts).map(([k, v]) => v + ' ' + ({ transaction: 'giao dịch', budgets: 'ngân sách', assets: 'tài sản', valuations: 'định giá', recurring: 'định kỳ', debts: 'khoản nợ' }[k] || k)).join(', ') : '') + (st.error ? ' · Lỗi: ' + st.error : '');
 }
 
 function renderFinanceViews() {
@@ -229,6 +245,9 @@ document.addEventListener('click', e => {
   if (action === 'confirm-occ') fvConfirmOccurrence(b.dataset.occId);
   else if (action === 'sync-now') { retryUnsynced().then(() => syncWithSheet(false)); }
   else if (action === 'add-asset') fvOpenAsset(null);
+  else if (action === 'add-debt') fvOpenDebt(null);
+  else if (action === 'edit-debt') fvOpenDebt(id);
+  else if (action === 'delete-debt') { const d = fvDebts().find(x => x.id === id); if (!d || !confirm(`Xóa khoản nợ “${d.name}”?`)) return; extStore.edit('debts', fvDebts().filter(x => x.id !== id)); fvAfterExtEdit('Đã xóa khoản nợ'); }
   else if (action === 'skip-occ') fvSkipOccurrence(b.dataset.occId);
   else if (action === 'drill') fvDrill(b.dataset.type);
   else if (action === 'resolve') { if (b.dataset.choice === 'local' && !confirm('Ghi bản trên máy này thay cho bản trên Google Sheets?')) return; extStore.resolve(b.dataset.collection, b.dataset.choice); if (b.dataset.choice === 'local') fvAfterExtEdit('Đã chọn bản trên máy'); }
@@ -243,9 +262,10 @@ document.querySelectorAll('[data-close-overlay]').forEach(b => b.addEventListene
 
 // asset form
 $('#assetType').innerHTML = FD.netWorth.ASSET_TYPES.map(t => `<option value="${t}">${FD.netWorth.ASSET_TYPE_LABELS[t]}</option>`).join('');
+$('#debtType').innerHTML = FD.netWorth.DEBT_TYPES.map(t => `<option value="${t}">${FD.netWorth.DEBT_TYPE_LABELS[t]}</option>`).join('');
 $('#valSource').innerHTML = FD.netWorth.SOURCE_TYPES.map(t => `<option value="${t}">${FD.netWorth.SOURCE_LABELS[t]}</option>`).join('');
 const fvFmt = n => (n === '' || n === null || n === undefined ? '' : new Intl.NumberFormat('vi-VN').format(n));
-['#assetValue', '#assetAcqValue', '#valValue', '#ruleAmount', '#simPrincipal', '#simMonthlyPrincipal', '#simExtra'].forEach(s => $(s).addEventListener('input', e => { const v = parseDigits(e.target.value); e.target.value = v ? fvFmt(v) : ''; }));
+['#assetValue', '#assetAcqValue', '#debtBalance', '#valValue', '#ruleAmount', '#simPrincipal', '#simMonthlyPrincipal', '#simExtra'].forEach(s => $(s).addEventListener('input', e => { const v = parseDigits(e.target.value); e.target.value = v ? fvFmt(v) : ''; }));
 function fvOpenAsset(id) {
   FV.editingAssetId = id || null;
   const a = fvAssets().find(x => x.id === id) || { type: 'bank', name: '', currentValue: '', valuationDate: fvToday(), ownershipShare: 1, acquisitionDate: '', acquisitionValue: '', status: 'active', disposalDate: '', notes: '' };
@@ -266,6 +286,29 @@ $('#assetForm').addEventListener('submit', e => {
   const list = fvAssets().filter(x => x.id !== asset.id).concat(asset);
   extStore.edit('assets', list); closeOverlay('#assetOverlay');
   fvAfterExtEdit(FV.editingAssetId ? 'Đã sửa tài sản' : 'Đã thêm tài sản');
+});
+// debt form
+function fvOpenDebt(id) {
+  FV.editingDebtId = id || null;
+  const d = fvDebts().find(x => x.id === id) || { type: 'personal', name: '', balance: '', balanceDate: fvToday(), startDate: '', status: 'active', paidDate: '', notes: '' };
+  $('#debtFormTitle').textContent = id ? 'Sửa khoản nợ' : 'Thêm nợ';
+  $('#debtType').value = d.type; $('#debtName').value = d.name; $('#debtBalance').value = fvFmt(d.balance); $('#debtBalanceDate').value = d.balanceDate || fvToday();
+  $('#debtStart').value = d.startDate || ''; $('#debtStatus').value = d.status || 'active'; $('#debtPaid').value = d.paidDate || ''; $('#debtNotes').value = d.notes || '';
+  openOverlay('#debtOverlay'); $('#debtName').focus();
+}
+$('#addDebtBtn').onclick = () => fvOpenDebt(null);
+$('#debtStatus').addEventListener('change', e => { if (e.target.value === 'paid' && !$('#debtPaid').value) $('#debtPaid').value = fvToday(); });
+$('#debtForm').addEventListener('submit', e => {
+  e.preventDefault();
+  if ($('#debtBalance').value.trim() === '') return showToast('Nhập số dư còn nợ');
+  const debt = { id: FV.editingDebtId || fvUid('d'), type: $('#debtType').value, name: $('#debtName').value.trim(), currency: 'VND', balance: parseDigits($('#debtBalance').value), balanceDate: $('#debtBalanceDate').value, startDate: $('#debtStart').value, status: $('#debtStatus').value, paidDate: $('#debtPaid').value, notes: $('#debtNotes').value.trim() };
+  if (debt.status === 'paid' && !debt.paidDate) debt.paidDate = fvToday();
+  if (debt.status === 'active') debt.paidDate = '';
+  const labels = { name: 'tên', balance: 'số dư', balanceDate: 'ngày số dư', startDate: 'ngày bắt đầu', paidDate: 'ngày trả hết' };
+  const errors = FD.netWorth.validateDebt(debt);
+  if (errors.length) return showToast('Kiểm tra lại: ' + errors.map(x => labels[x] || x).join(', '));
+  extStore.edit('debts', fvDebts().filter(x => x.id !== debt.id).concat(debt)); closeOverlay('#debtOverlay');
+  fvAfterExtEdit(FV.editingDebtId ? 'Đã sửa khoản nợ' : 'Đã thêm khoản nợ');
 });
 function fvOpenValuation(assetId) {
   FV.valuationAssetId = assetId; const a = fvAssets().find(x => x.id === assetId); if (!a) return;
@@ -326,7 +369,7 @@ function downloadLocalBackup() {
 }
 // Called by destructive actions (clear device data, log out) before anything is removed.
 function offerBackupBeforeReset() {
-  if (!transactions.length && !operations().length && !fvAssets().length && !fvRules().length) return;
+  if (!transactions.length && !operations().length && !fvAssets().length && !fvRules().length && !fvDebts().length) return;
   if (confirm('Tải bản sao lưu dữ liệu trên máy trước khi xóa? (Khuyến nghị — gồm cả thay đổi chưa đồng bộ)')) downloadLocalBackup();
 }
 $('#backupBtn').onclick = downloadLocalBackup;

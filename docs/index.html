@@ -174,9 +174,8 @@
         <section class="view" id="assetsView" aria-labelledby="assetsTitle">
           <header class="page-header">
             <div class="page-header-text"><h1 class="page-title" id="assetsTitle" tabindex="-1">Tài sản &amp; Nợ</h1><p class="page-subtitle">Tài sản trừ dư nợ tại cùng ngày chốt. Thiếu định giá hoặc lịch vay thì không tính tổng.</p></div>
-            <div class="page-actions"><button type="button" class="btn btn-primary btn-md" id="addAssetBtn"><span data-icon="plus"></span><span class="btn-label">Thêm tài sản</span></button></div>
+            <div class="page-actions"><button type="button" class="btn btn-secondary btn-md" id="addDebtBtn"><span data-icon="plus"></span><span class="btn-label">Thêm nợ</span></button><button type="button" class="btn btn-primary btn-md" id="addAssetBtn"><span data-icon="plus"></span><span class="btn-label">Thêm tài sản</span></button></div>
           </header>
-          <nav class="subnav" aria-label="Tài sản và khoản vay"><a href="#/tai-san" data-nav="assets" aria-current="page">Tài sản &amp; Nợ</a><a href="#/khoan-vay" data-nav="loans">Khoản vay</a></nav>
           <div id="extBanner" role="status" hidden></div>
           <section class="card card-default" aria-labelledby="netWorthCardTitle">
             <header class="card-header"><div class="card-heading"><h2 class="card-title" id="netWorthCardTitle">Giá trị ròng</h2></div><div class="card-actions"><label class="field field-inline"><span class="field-label">Ngày chốt</span><input id="netWorthCutoff" type="date" /></label></div></header>
@@ -188,8 +187,8 @@
               <div class="card-body"><div id="assetConflict" hidden></div><div id="assetList"></div></div>
             </section>
             <section class="card card-default d-4" aria-labelledby="liabilityTitle">
-              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="liabilityTitle">Nợ phải trả</h2><p class="card-subtitle">Dư nợ gốc theo lịch vay tháng chốt.</p></div><div class="card-actions"><a class="btn btn-ghost btn-sm" href="#/khoan-vay" data-nav="loans">Khoản vay</a></div></header>
-              <div class="card-body"><div id="liabilitySummary"></div></div>
+              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="liabilityTitle">Nợ phải trả</h2><p class="card-subtitle">Dư nợ vay theo lịch tháng chốt và các khoản nợ bạn nhập.</p></div><div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" data-action="add-debt"><span data-icon="plus"></span><span class="btn-label">Thêm nợ</span></button></div></header>
+              <div class="card-body"><div id="debtConflict" hidden></div><div id="liabilitySummary"></div></div>
             </section>
           </div>
         </section>
@@ -199,7 +198,6 @@
           <header class="page-header">
             <div class="page-header-text"><h1 class="page-title" id="loansTitle" tabindex="-1">Khoản vay</h1><p class="page-subtitle">Lãi là chi phí; gốc làm giảm dư nợ. Lịch vay đến từ sheet riêng tư Loans.</p></div>
           </header>
-          <nav class="subnav" aria-label="Tài sản và khoản vay"><a href="#/tai-san" data-nav="assets">Tài sản &amp; Nợ</a><a href="#/khoan-vay" data-nav="loans" aria-current="page">Khoản vay</a></nav>
           <section class="card card-default" aria-labelledby="loanPositionTitle">
             <header class="card-header"><div class="card-heading"><h2 class="card-title" id="loanPositionTitle">Tình hình khoản vay</h2></div><div class="card-actions"><span class="badge badge-scheduled">Lịch dự kiến</span></div></header>
             <div class="card-body"><div id="loanPosition"></div></div>
@@ -449,6 +447,23 @@
         <label class="field wide"><span class="field-label">Ghi chú</span><input id="assetNotes" maxlength="500" /></label>
         <p class="field-help wide">Giá trị do bạn nhập được ghi nhận là <b>ước tính</b>. Để trống nếu chưa biết — app sẽ báo thiếu thay vì coi là 0.</p>
         <div class="sheet-actions wide"><button type="button" class="btn btn-secondary btn-md" data-close-overlay="assetOverlay">Hủy</button><button class="btn btn-primary btn-md submit-entry" type="submit">Lưu tài sản</button></div>
+      </form>
+    </section>
+  </div>
+  <div class="overlay" id="debtOverlay" aria-hidden="true" data-unsafe-close>
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="debtFormTitle">
+      <div class="sheet-head"><h2 id="debtFormTitle">Thêm nợ</h2><button type="button" class="btn btn-ghost btn-icon close-btn" data-close-overlay="debtOverlay" aria-label="Đóng"><span data-icon="close"></span></button></div>
+      <form id="debtForm" class="form-grid">
+        <label class="field"><span class="field-label">Loại</span><select id="debtType"></select></label>
+        <label class="field"><span class="field-label">Tên khoản nợ</span><input id="debtName" maxlength="120" placeholder="VD: Vay anh Hai, Thẻ tín dụng" required /></label>
+        <label class="field"><span class="field-label">Số dư còn nợ (₫)</span><input id="debtBalance" inputmode="numeric" required /></label>
+        <label class="field"><span class="field-label">Số dư tính đến ngày</span><input id="debtBalanceDate" type="date" required /></label>
+        <label class="field"><span class="field-label">Ngày bắt đầu nợ</span><input id="debtStart" type="date" /></label>
+        <label class="field"><span class="field-label">Trạng thái</span><select id="debtStatus"><option value="active">Đang nợ</option><option value="paid">Đã trả hết</option></select></label>
+        <label class="field"><span class="field-label">Ngày trả hết</span><input id="debtPaid" type="date" /></label>
+        <label class="field wide"><span class="field-label">Ghi chú</span><input id="debtNotes" maxlength="500" /></label>
+        <p class="field-help wide">Khoản vay ngân hàng có lịch trả nợ đã lấy từ sheet Loans — không cần nhập lại ở đây. Khi số dư thay đổi, sửa khoản nợ và cập nhật ngày.</p>
+        <div class="sheet-actions wide"><button type="button" class="btn btn-secondary btn-md" data-close-overlay="debtOverlay">Hủy</button><button class="btn btn-primary btn-md submit-entry" type="submit">Lưu khoản nợ</button></div>
       </form>
     </section>
   </div>

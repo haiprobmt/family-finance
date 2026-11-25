@@ -1,11 +1,11 @@
-// Client store for the additive 3.0 collections (assets, valuations, recurring rules).
+// Client store for the additive 3.0 collections (assets, valuations, recurring rules, debts).
 // Local-first: edits are kept as a pending replacement with the base revision, pushed with
 // ext_save, and surfaced as conflicts when another device changed the collection.
 // A backend without ext_* actions (pre-3.0 deployment) is detected and left untouched.
 (function (root) {
   'use strict';
   const E = root.FFSync.engine;
-  const NAMES = ['assets', 'valuations', 'recurring'];
+  const NAMES = ['assets', 'valuations', 'recurring', 'debts'];
   function createExtStore({ read, write, request, onChange }) {
     const saved = read('ext_cache_v1', null) || {};
     let state = { supported: saved.supported ?? null, lastError: null, collections: {} };
@@ -22,12 +22,14 @@
         let snap;
         try { snap = await request({ action: 'ext_snapshot' }); }
         catch (e) { if (/không được hỗ trợ/.test(e.message || '')) { state.supported = false; state.lastError = null; persist(); return 'unsupported'; } state.lastError = e.message; throw e; }
-        state.supported = true; state.lastError = null;
+        state.supported = true; state.lastError = null; state.migrationError = snap.migrationError || null;
         for (const n of NAMES) {
           const remote = snap.collections && snap.collections[n];
           let local = E.rebaseInitial(state.collections[n], remote);
           const decision = E.collectionDecision(local, remote);
-          if (decision === 'unavailable') { state.collections[n] = { ...local, available: false }; continue; }
+          // No entry at all: the deployed Code.gs predates this collection (needs updating), as
+          // opposed to available:false, where only the owner's migrationsApply step is missing.
+          if (decision === 'unavailable') { state.collections[n] = { ...local, available: false, outdated: !remote }; continue; }
           if (decision === 'adopt') { state.collections[n] = E.adoptCollection(local, remote); continue; }
           if (decision === 'conflict') { state.collections[n] = { ...local, remote, available: true }; continue; }
           try {
