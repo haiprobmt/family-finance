@@ -9,7 +9,7 @@
 //   GOOGLE_APPLICATION_CREDENTIALS  path to a service-account key JSON (spreadsheet shared with it)
 //   FAMILY_ACCESS_TOKEN             the family connection code (≥ 24 characters)
 //   DEEPSEEK_API_KEY, AI_PROVIDER   optional, for the assistant
-//   HOST (127.0.0.1), PORT (8080), TRUST_PROXY (1 behind Caddy/nginx on the same machine)
+//   HOST (127.0.0.1), PORT (8091), TRUST_PROXY (1 behind Caddy/nginx on the same machine)
 //
 // CLI: node server/index.js --check          verify Google Sheets access and exit
 //      node server/index.js --run <function> run a backend function (e.g. migrationsDryRun)
@@ -127,7 +127,7 @@ function configFromEnv(env = process.env) {
     credentialsFile: env.GOOGLE_APPLICATION_CREDENTIALS || '',
     properties: { FAMILY_ACCESS_TOKEN: env.FAMILY_ACCESS_TOKEN || '', DEEPSEEK_API_KEY: env.DEEPSEEK_API_KEY || '', AI_PROVIDER: env.AI_PROVIDER || '' },
     host: env.HOST || '127.0.0.1',
-    port: Number(env.PORT || 8080),
+    port: Number(env.PORT || 8091),
     trustProxy: env.TRUST_PROXY === '1'
   };
 }

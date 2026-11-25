@@ -3,6 +3,6 @@
 # domain, <public-ip-with-dashes>.sslip.io works, e.g. 203-0-113-7.sslip.io.
 family.example.com {
 	encode gzip
-	reverse_proxy 127.0.0.1:8080
+	reverse_proxy 127.0.0.1:8091
 	header Strict-Transport-Security "max-age=31536000"
 }

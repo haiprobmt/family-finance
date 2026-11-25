@@ -10,7 +10,7 @@
 #          /opt/family-finance/node  private Node.js 22 (only if the system has no Node >= 20)
 #          /etc/family-finance/env   settings and secrets (root:family-finance, 0640) — never in git
 #          /etc/family-finance/google-credentials.json  service-account key (0640)
-# The service listens on 127.0.0.1:8080; put Caddy/nginx in front for HTTPS (deploy/Caddyfile.example).
+# The service listens on 127.0.0.1:8091; put Caddy/nginx in front for HTTPS (deploy/Caddyfile.example).
 set -euo pipefail
 
 REPO="https://github.com/haiprobmt/family-finance.git"
@@ -103,7 +103,7 @@ runuser -u "$USER_NAME" -- bash -c 'set -a; . "$1"; set +a; exec "$2" "$3" --che
 
 log "Restarting $SERVICE"
 systemctl restart "$SERVICE"
-PORT="${PORT:-8080}"
+PORT="${PORT:-8091}"
 for _ in $(seq 1 40); do
   if curl -fsS "http://127.0.0.1:$PORT/api?build=1" 2>/dev/null | grep -q "\"build\":\"$BUILD\""; then
     echo "Family Finance build $BUILD is running on 127.0.0.1:$PORT."

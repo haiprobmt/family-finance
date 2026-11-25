@@ -23,7 +23,7 @@ One-time setup:
    Then on the VM put the key at `/etc/family-finance/google-credentials.json` and fill in
    `/etc/family-finance/env` (`SPREADSHEET_ID`, `FAMILY_ACCESS_TOKEN` — reuse the old one —
    and optionally `DEEPSEEK_API_KEY`), and run `sudo /opt/family-finance/app/deploy/install.sh`
-   again. It checks Sheets access and starts the `family-finance` service on 127.0.0.1:8080.
+   again. It checks Sheets access and starts the `family-finance` service on 127.0.0.1:8091.
 3. **HTTPS**: install Caddy and use `deploy/Caddyfile.example` with a DNS name for the VM.
 4. On each phone open `https://<your-domain>/`, enter the family token (the address is filled in),
    and install it from the browser menu (Add to Home screen).
