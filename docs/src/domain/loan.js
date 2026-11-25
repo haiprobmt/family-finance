@@ -49,6 +49,8 @@
     const interest = row.principal * rate * row.days / DAY_COUNT;
     return { ...row, rate, interest, principalPayment: TCB_PRINCIPAL_PAYMENT, payment: interest + TCB_PRINCIPAL_PAYMENT, rateType: hasActual ? 'Thực tế' : 'Dự đoán' };
   }
+  // FinanceSettings ExtraDebtMonthly applies up to ExtraDebtUntil (inclusive) when that is set.
+  function extraDebtAt(schedule, month) { return schedule.extraDebtUntil && month > schedule.extraDebtUntil ? 0 : (schedule.extraDebt || 0); }
   // Scheduled repayment for a month (legacy homeLoanSummary). `total` includes ExtraDebtMonthly and
   // only known rows; `missing` must be shown to the user whenever true.
   function loanSummary(schedule, month, rates) {
@@ -56,7 +58,7 @@
     const rows = banks.map(bank => { const source = schedule.records.find(r => r.bank === bank && r.month === month); return source ? calculateLoanPayment(source, rates) : { bank, missing: true }; });
     const missing = rows.some(r => r.missing), label = month.split('-').reverse().join('/');
     const missingNote = !missing ? '' : month < schedule.start ? `${label}: chưa có lịch vay; dữ liệu bắt đầu từ 10/2026.` : `${label}: chưa có lịch ${rows.filter(r => r.missing).map(r => r.bank).join(', ')}.`;
-    return { rows, missing, missingNote, total: (schedule.extraDebt || 0) + rows.reduce((sum, r) => sum + (r.missing ? 0 : Math.round(r.payment)), 0) };
+    return { rows, missing, missingNote, total: extraDebtAt(schedule, month) + rows.reduce((sum, r) => sum + (r.missing ? 0 : Math.round(r.payment)), 0) };
   }
   // Principal/interest separation for accounting: principal reduces liability, interest is expense.
   function paymentBreakdown(row) {
@@ -119,5 +121,5 @@
     return { interestSaved: base.totals.interest - withExtra.totals.interest, feesPaid: withExtra.totals.fees, netSaving: base.totals.interest - withExtra.totals.interest - withExtra.totals.fees, monthsSaved: base.months - withExtra.months };
   }
 
-  D.loan = { TCB_PRINCIPAL_PAYMENT, DAY_COUNT, LEGACY_BANKS, trackedBanks, scheduleEnd, loanScheduleRows, normalizeRates, calculateLoanPayment, loanSummary, paymentBreakdown, liabilityAt, simulateRepayment, compareRepayment };
+  D.loan = { TCB_PRINCIPAL_PAYMENT, DAY_COUNT, LEGACY_BANKS, trackedBanks, scheduleEnd, extraDebtAt, loanScheduleRows, normalizeRates, calculateLoanPayment, loanSummary, paymentBreakdown, liabilityAt, simulateRepayment, compareRepayment };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

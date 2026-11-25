@@ -64,7 +64,7 @@ function renderLoanDetail(){
   $('#categoryDetailTitle').textContent='Trả nợ';
   $('#categoryDetailScope').textContent=new Intl.DateTimeFormat('vi-VN',{month:'long',year:'numeric'}).format(activeMonth)+(debt.missing?' · '+debt.missingNote:'');
   $('#categoryDetailTotal').textContent=money(debt.total)+(debt.missing?' (tạm tính)':'');
-  $('#categoryDetailBody').innerHTML=debt.rows.map(r=>`<tr><td data-label="Tháng">${monthKey(activeMonth).split('-').reverse().join('/')}</td><td data-label="Khoản"><b>${escapeHtml(r.bank)}</b><small>${r.missing?'Chưa có dữ liệu':escapeHtml(r.rateType)}</small></td><td class="num" data-label="Số tiền">${r.missing?'<span class="unknown">Thiếu</span>':UIc.money(r.payment)}</td></tr>`).join('')+`<tr><td data-label="Tháng">—</td><td data-label="Khoản"><b>Khoản cộng thêm</b></td><td class="num" data-label="Số tiền">${UIc.money(LOAN_SCHEDULE.extraDebt||0)}</td></tr>`;
+  $('#categoryDetailBody').innerHTML=debt.rows.map(r=>`<tr><td data-label="Tháng">${monthKey(activeMonth).split('-').reverse().join('/')}</td><td data-label="Khoản"><b>${escapeHtml(r.bank)}</b><small>${r.missing?'Chưa có dữ liệu':escapeHtml(r.rateType)}</small></td><td class="num" data-label="Số tiền">${r.missing?'<span class="unknown">Thiếu</span>':UIc.money(r.payment)}</td></tr>`).join('')+`<tr><td data-label="Tháng">—</td><td data-label="Khoản"><b>Khoản cộng thêm</b></td><td class="num" data-label="Số tiền">${UIc.money(FL.extraDebtAt(LOAN_SCHEDULE,monthKey(activeMonth)))}</td></tr>`;
   $('#categoryDetailEmpty').hidden=true;$('#categoryDetailTable').hidden=false;
 }
 // Expense composition: donut (≤7 slices, rest grouped as "Khác") + per-category budget progress.

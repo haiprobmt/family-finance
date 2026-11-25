@@ -5,7 +5,9 @@ function readPrivateLoans(){
  const ss=SpreadsheetApp.getActiveSpreadsheet(),sheet=ss.getSheetByName('Loans');
  const result={start:'2026-10',end:'2030-12',records:[],extraDebt:0};
  const settings=ss.getSheetByName('FinanceSettings');
- if(settings){const rows=settings.getDataRange().getValues();for(const row of rows)if(row[0]==='ExtraDebtMonthly'){const amount=Number(row[1]);if(!Number.isFinite(amount)||amount<0)throw new Error('ExtraDebtMonthly không hợp lệ');result.extraDebt=amount;}}
+ if(settings){const rows=settings.getDataRange().getValues();for(const row of rows){if(row[0]==='ExtraDebtMonthly'){const amount=Number(row[1]);if(!Number.isFinite(amount)||amount<0)throw new Error('ExtraDebtMonthly không hợp lệ');result.extraDebt=amount;}
+   // Optional last month (YYYY-MM) of the extra repayment; absent = every month (legacy behaviour).
+   else if(row[0]==='ExtraDebtUntil'&&row[1]!==''){const until=row[1] instanceof Date?Utilities.formatDate(row[1],ss.getSpreadsheetTimeZone(),'yyyy-MM'):String(row[1]).trim();if(!/^\d{4}-(0[1-9]|1[012])$/.test(until))throw new Error('ExtraDebtUntil phải có dạng YYYY-MM');result.extraDebtUntil=until;}}}
  if(!sheet)return result;
  const rows=sheet.getDataRange().getValues(),headers=rows.shift()||[],expected=['Bank','Month','Principal','Rate','Interest','Days'];
  if(expected.some((v,i)=>headers[i]!==v))throw new Error('Loans cần cột: '+expected.join(', '));
