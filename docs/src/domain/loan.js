@@ -3,19 +3,37 @@
 //  - Rows before Techcombank 2026-12 use the file's Interest column as the payment.
 //  - Techcombank from 2026-12 uses principal * rate * days / 365 plus a fixed 909,400 principal.
 //  - A missing bank/month is reported as missing, never as a confirmed zero.
+//  - Any other bank (loans entered in the app) uses the file's Interest column as the payment and is
+//    tracked from its first to its last scheduled month.
 (function (root) {
   'use strict';
   const D = root.FFDomain = root.FFDomain || {};
   const TCB_PRINCIPAL_PAYMENT = 909400;
   const DAY_COUNT = 365;
 
-  function trackedBanks(month) { return month < '2026-11' ? ['Shinhan', 'Techcombank'] : ['Shinhan']; }
+  const LEGACY_BANKS = ['Shinhan', 'Techcombank'];
+  // Loans entered in the app (any other bank name) are tracked from their first to their last
+  // scheduled month; a gap inside that range is reported as missing.
+  function addedLoanRanges(schedule) {
+    const ranges = new Map();
+    for (const r of (schedule && schedule.records) || []) {
+      if (LEGACY_BANKS.includes(r.bank)) continue;
+      const x = ranges.get(r.bank);
+      if (!x) ranges.set(r.bank, { first: r.month, last: r.month });
+      else { if (r.month < x.first) x.first = r.month; if (r.month > x.last) x.last = r.month; }
+    }
+    return [...ranges].sort((a, b) => a[0].localeCompare(b[0]));
+  }
+  function trackedBanks(month, schedule) {
+    const legacy = month < '2026-11' ? ['Shinhan', 'Techcombank'] : ['Shinhan'];
+    return legacy.concat(addedLoanRanges(schedule).filter(([, x]) => month >= x.first && month <= x.last).map(([bank]) => bank));
+  }
+  function scheduleEnd(schedule) { return addedLoanRanges(schedule).reduce((end, [, x]) => (x.last > end ? x.last : end), schedule.end); }
   function loanScheduleRows(schedule) {
     const indexed = new Map(schedule.records.map(r => [r.bank + '|' + r.month, r]));
     const rows = [];
-    for (let year = 2026; year <= 2030; year++) for (let month = 1; month <= 12; month++) {
-      const key = year + '-' + String(month).padStart(2, '0'); if (key < schedule.start || key > schedule.end) continue;
-      for (const bank of trackedBanks(key)) rows.push(indexed.get(bank + '|' + key) || { bank, month: key, missing: true });
+    for (const key of D.money.monthRange(schedule.start, scheduleEnd(schedule))) {
+      for (const bank of trackedBanks(key, schedule)) rows.push(indexed.get(bank + '|' + key) || { bank, month: key, missing: true });
     }
     return rows;
   }
@@ -34,7 +52,7 @@
   // Scheduled repayment for a month (legacy homeLoanSummary). `total` includes ExtraDebtMonthly and
   // only known rows; `missing` must be shown to the user whenever true.
   function loanSummary(schedule, month, rates) {
-    const banks = trackedBanks(month);
+    const banks = trackedBanks(month, schedule);
     const rows = banks.map(bank => { const source = schedule.records.find(r => r.bank === bank && r.month === month); return source ? calculateLoanPayment(source, rates) : { bank, missing: true }; });
     const missing = rows.some(r => r.missing), label = month.split('-').reverse().join('/');
     const missingNote = !missing ? '' : month < schedule.start ? `${label}: chưa có lịch vay; dữ liệu bắt đầu từ 10/2026.` : `${label}: chưa có lịch ${rows.filter(r => r.missing).map(r => r.bank).join(', ')}.`;
@@ -49,7 +67,7 @@
   }
   // Outstanding liability at a month cut-off from the schedule's interest-bearing principal.
   function liabilityAt(schedule, month) {
-    const banks = trackedBanks(month), items = banks.map(bank => { const r = schedule.records.find(x => x.bank === bank && x.month === month); return r ? { bank, principal: Math.round(r.principal), month } : { bank, missing: true }; });
+    const banks = trackedBanks(month, schedule), items = banks.map(bank => { const r = schedule.records.find(x => x.bank === bank && x.month === month); return r ? { bank, principal: Math.round(r.principal), month } : { bank, missing: true }; });
     const missing = items.filter(i => i.missing).map(i => i.bank);
     return { month, items, missing, complete: missing.length === 0, total: missing.length ? null : items.reduce((s, i) => s + i.principal, 0), knownTotal: items.reduce((s, i) => s + (i.principal || 0), 0) };
   }
@@ -101,5 +119,5 @@
     return { interestSaved: base.totals.interest - withExtra.totals.interest, feesPaid: withExtra.totals.fees, netSaving: base.totals.interest - withExtra.totals.interest - withExtra.totals.fees, monthsSaved: base.months - withExtra.months };
   }
 
-  D.loan = { TCB_PRINCIPAL_PAYMENT, DAY_COUNT, trackedBanks, loanScheduleRows, normalizeRates, calculateLoanPayment, loanSummary, paymentBreakdown, liabilityAt, simulateRepayment, compareRepayment };
+  D.loan = { TCB_PRINCIPAL_PAYMENT, DAY_COUNT, LEGACY_BANKS, trackedBanks, scheduleEnd, loanScheduleRows, normalizeRates, calculateLoanPayment, loanSummary, paymentBreakdown, liabilityAt, simulateRepayment, compareRepayment };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

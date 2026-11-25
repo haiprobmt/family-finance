@@ -14,7 +14,7 @@ web app, so **web updates reach the Android app without reinstalling**. The wrap
 | | |
 |---|---|
 | Package | `io.github.haiprobmt.familyfinance` (new app; installs alongside APK 2.3.0) |
-| Version | 3.0.0 (versionCode 1) |
+| Version | 3.1.0 (versionCode 2) |
 | SDK | min 26 (Android 8.0), target/compile 35 (Android 15) |
 | Permissions | `INTERNET` only |
 
@@ -32,6 +32,13 @@ FF_KEYSTORE=/path/family-finance-release.jks FF_KEY_ALIAS=familyfinance \
 FF_KEYSTORE_PASSWORD=... FF_KEY_PASSWORD=... gradle assembleRelease
 # → app/build/outputs/apk/release/app-release.apk
 ```
+
+### Opening the family's own server instead of GitHub Pages
+
+Set `FF_START_URL` when building, e.g. `FF_START_URL=https://my-vm.example.ts.net:8443/ gradle assembleRelease`
+(HTTPS, ending with `/`). The app then opens that server; the web app there fills in its own `/api`
+address, so only the family token is entered. Keep private addresses out of git: pass the variable
+on the command line only. Without it the app opens GitHub Pages, as before.
 
 Without the `FF_*` variables the release APK is built unsigned. **Never commit the keystore or its
 password** (`*.jks`, `*.keystore` are git-ignored). Future updates of this app must be signed with the

@@ -1,7 +1,7 @@
 'use strict';
 // Offline support for the public static app files only. API calls (/api, script.google.com) are never
 // cached or intercepted.
-const CACHE='family-finance-pages-v9';
+const CACHE='family-finance-pages-v10';
 // Explicit allowlist of public static files (kept equal to index.html references by tests/web.cjs).
 const FILES=['./','index.html','icon-512.png','manifest.webmanifest','icon-192.png','favicon.svg','styles/tokens.css','styles/base.css','styles/layout.css','styles/components.css','styles/pages.css','src/ui/format.js','src/ui/icons.js','src/ui/components.js','src/ui/charts.js','src/ui/overlay.js','src/ui/shell.js','src/domain/money.js','src/domain/budget.js','src/domain/cashflow.js','src/domain/loan.js','src/domain/net-worth.js','src/domain/recurring.js','src/domain/forecast.js','src/domain/insights.js','src/sync/engine.js','src/data/local-store.js','src/features/ext-store.js','web-bridge.js','loans-data.js','dashboard.js','app.js','src/features/finance-views.js','pwa.js'];
 const urls=new Set(FILES.map(p=>new URL(p,self.registration.scope).href));

@@ -1,1 +1,1 @@
-["Domain.gs","Code.gs","TransactionService.gs","BudgetService.gs","LoanReadService.gs","Extensions.gs","Migrations.gs","Assistant.gs"]
+["Domain.gs","Code.gs","TransactionService.gs","BudgetService.gs","LoanReadService.gs","LoanWriteService.gs","Extensions.gs","Migrations.gs","Assistant.gs"]

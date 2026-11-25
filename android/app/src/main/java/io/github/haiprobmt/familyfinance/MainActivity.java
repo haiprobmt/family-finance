@@ -46,10 +46,14 @@ import java.util.Locale;
  * Links outside the app open in the default browser. No data is stored by this wrapper.
  */
 public class MainActivity extends Activity {
-    static final String START_URL = "https://haiprobmt.github.io/family-finance/";
-    static final String APP_HOST = "haiprobmt.github.io";
-    static final String APP_PATH = "/family-finance/";
-    static final String VERSION = "3.0.0";
+    // The web app this wrapper opens: GitHub Pages by default, or the family's own server when built
+    // with FF_START_URL (see app/build.gradle). Only this origin and path count as "the app".
+    static final String START_URL = BuildConfig.START_URL;
+    static final Uri START = Uri.parse(START_URL);
+    static final String APP_HOST = START.getHost();
+    static final int APP_PORT = START.getPort();
+    static final String APP_PATH = START.getPath() == null || START.getPath().isEmpty() ? "/" : START.getPath();
+    static final String VERSION = BuildConfig.VERSION_NAME;
 
     private WebView web;
     private volatile String currentUrl = "";
@@ -127,8 +131,9 @@ public class MainActivity extends Activity {
     }
 
     private boolean isAppUrl(Uri url) {
-        return url != null && "https".equals(url.getScheme()) && APP_HOST.equals(url.getHost())
-            && url.getPath() != null && (url.getPath().startsWith(APP_PATH) || url.getPath().equals("/family-finance"));
+        if (url == null || !"https".equals(url.getScheme()) || !APP_HOST.equals(url.getHost()) || url.getPort() != APP_PORT) return false;
+        String path = url.getPath() == null || url.getPath().isEmpty() ? "/" : url.getPath();
+        return path.startsWith(APP_PATH) || (APP_PATH.endsWith("/") && path.equals(APP_PATH.substring(0, APP_PATH.length() - 1)));
     }
 
     private void openExternal(Uri url) {

@@ -68,19 +68,16 @@
             </div>
           </header>
           <div class="grid expense-composition">
-            <section class="card card-default d-12" aria-labelledby="netWorthTitle">
-              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="netWorthTitle">Giá trị tài sản ròng</h2><p class="card-subtitle" id="netWorthScope"></p></div><div class="card-actions"><a class="btn btn-ghost btn-sm" href="#/tai-san" data-nav="assets">Chi tiết</a></div></header>
-              <div class="card-body"><div class="metric-grid metric-grid-3" id="dashNetWorth"></div></div>
+            <section class="card card-default d-7" aria-labelledby="compositionTitle">
+              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="compositionTitle">Chi tiêu theo danh mục</h2><p class="card-subtitle" id="expensePieNote" hidden></p></div></header>
+              <div class="card-body"><div id="expensePie"></div></div>
             </section>
-            <section class="card card-default d-12" aria-labelledby="cashflowTitle">
-              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="cashflowTitle">Dòng tiền tháng</h2><p class="card-subtitle">Chỉ gồm giao dịch đã ghi; khoản định kỳ chưa xác nhận không được cộng.</p></div><div class="card-actions"><span class="badge badge-success">Thực tế</span></div></header>
+            <section class="card card-default d-5" aria-labelledby="homeBudgetTitle">
+              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="homeBudgetTitle">Ngân sách tháng</h2><p class="card-subtitle" id="budgetCaption"></p></div><div class="card-actions"><a class="btn btn-ghost btn-sm" href="#/ngan-sach" data-nav="budget">Ngân sách</a></div></header>
               <div class="card-body">
-                <div class="metric-grid metric-grid-4" id="dashCashflow">
-                  <button type="button" class="metric metric-action" data-action="drill" data-type="Income"><span class="metric-label">Thu nhập</span><span class="metric-value money money-income" id="incomeTotal">—</span><span class="metric-helper">Xem giao dịch nguồn</span></button>
-                  <button type="button" class="metric metric-action" data-action="drill" data-type="Expense"><span class="metric-label">Chi tiêu</span><span class="metric-value money money-expense" id="expenseTotal">—</span><span class="metric-helper">Xem giao dịch nguồn</span></button>
-                  <div class="metric"><span class="metric-label">Dòng tiền ròng</span><span class="metric-value money" id="remainingTotal">—</span><span class="metric-helper">Thu nhập − chi tiêu</span></div>
-                  <div class="metric"><span class="metric-label">Tỷ lệ tiết kiệm</span><span class="metric-value" id="savingRate">—</span><span class="metric-helper" id="savingRateHelp">Ròng / thu nhập</span></div>
-                </div>
+                <div id="budgetGauge"></div>
+                <div id="dashBudgetAlerts"></div>
+                <div class="bp-list" id="expensePieLegend" aria-label="Danh mục và tỷ lệ sử dụng ngân sách"></div>
               </div>
             </section>
             <section class="card card-default d-7" aria-labelledby="recentTitle">
@@ -92,18 +89,6 @@
               <div class="card-body">
                 <div class="debt-line"><span class="badge badge-scheduled">Lịch dự kiến</span><p id="debtSummary"></p></div>
                 <ul class="reminder-list" id="homeReminderList"></ul>
-              </div>
-            </section>
-            <section class="card card-default d-7" aria-labelledby="compositionTitle">
-              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="compositionTitle">Chi tiêu theo danh mục</h2><p class="card-subtitle" id="expensePieNote" hidden></p></div></header>
-              <div class="card-body"><div id="expensePie"></div></div>
-            </section>
-            <section class="card card-default d-5" aria-labelledby="homeBudgetTitle">
-              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="homeBudgetTitle">Ngân sách tháng</h2><p class="card-subtitle" id="budgetCaption"></p></div><div class="card-actions"><a class="btn btn-ghost btn-sm" href="#/ngan-sach" data-nav="budget">Ngân sách</a></div></header>
-              <div class="card-body">
-                <div id="budgetGauge"></div>
-                <div id="dashBudgetAlerts"></div>
-                <div class="bp-list" id="expensePieLegend" aria-label="Danh mục và tỷ lệ sử dụng ngân sách"></div>
               </div>
             </section>
           </div>
@@ -156,7 +141,7 @@
           </header>
           <p id="budgetSyncStatus" class="text-sm muted" role="status"></p>
           <div id="budgetConflict" class="alert alert-danger" role="alert" hidden><div class="alert-content"><p class="alert-title">Ngân sách đã được sửa ở nơi khác</p><div class="alert-body">Chọn bản muốn giữ. Bản còn lại sẽ không được ghi lên Google Sheets.</div><div class="alert-actions"><button type="button" class="btn btn-secondary btn-sm" id="useRemoteBudget">Dùng bản trên Sheets</button><button type="button" class="btn btn-danger btn-sm" id="useLocalBudget">Ghi bản trên máy lên Sheets</button></div></div></div>
-          <div class="metric-grid metric-grid-4" id="budgetSummary"></div>
+          <section class="card card-default" aria-labelledby="budgetGaugeTitle"><header class="card-header"><div class="card-heading"><h2 class="card-title" id="budgetGaugeTitle">Mức dùng ngân sách tháng</h2><p class="card-subtitle">Tổng hạn mức gồm ngân sách trả nợ; chỉ tính khoản chi đã ghi.</p></div></header><div class="card-body"><div class="budget-gauge-layout" id="budgetSummary"></div></div></section>
           <div class="grid">
             <section class="card card-default d-8" aria-labelledby="budgetEditorTitle">
               <header class="card-header"><div class="card-heading"><h2 class="card-title" id="budgetEditorTitle">Hạn mức theo danh mục</h2><p class="card-subtitle">Thay đổi áp dụng từ tháng đang xem trở đi. Dùng chung cho gia đình qua Google Sheets.</p></div></header>
@@ -196,17 +181,18 @@
         <!-- Khoản vay -->
         <section class="view" id="loansView" aria-labelledby="loansTitle">
           <header class="page-header">
-            <div class="page-header-text"><h1 class="page-title" id="loansTitle" tabindex="-1">Khoản vay</h1><p class="page-subtitle">Lãi là chi phí; gốc làm giảm dư nợ. Lịch vay đến từ sheet riêng tư Loans.</p></div>
+            <div class="page-header-text"><h1 class="page-title" id="loansTitle" tabindex="-1">Khoản vay</h1><p class="page-subtitle">Lãi là chi phí; gốc làm giảm dư nợ. Lịch vay lưu trong sheet riêng tư Loans; thêm hoặc sửa ngay tại đây.</p></div>
+            <div class="page-actions"><button type="button" class="btn btn-primary btn-md" id="addLoanBtn"><span data-icon="plus"></span><span class="btn-label">Thêm khoản vay</span></button></div>
           </header>
           <section class="card card-default" aria-labelledby="loanPositionTitle">
             <header class="card-header"><div class="card-heading"><h2 class="card-title" id="loanPositionTitle">Tình hình khoản vay</h2></div><div class="card-actions"><span class="badge badge-scheduled">Lịch dự kiến</span></div></header>
             <div class="card-body"><div id="loanPosition"></div></div>
           </section>
           <section class="card card-default" aria-labelledby="loanScheduleTitle">
-            <header class="card-header"><div class="card-heading"><h2 class="card-title" id="loanScheduleTitle">Lịch lãi vay hàng tháng</h2><p class="card-subtitle">10/2026 – 12/2030 · Gốc: dư nợ tính lãi · Lãi suất: %/năm</p></div></header>
+            <header class="card-header"><div class="card-heading"><h2 class="card-title" id="loanScheduleTitle">Lịch lãi vay hàng tháng</h2><p class="card-subtitle"><span id="loanScheduleRange">10/2026 – 12/2030</span> · Gốc: dư nợ tính lãi · Lãi suất: %/năm · Bấm Sửa hoặc Nhập ở từng dòng</p></div></header>
             <div class="card-body">
-              <div class="table-wrap" tabindex="0" role="region" aria-label="Lịch lãi vay từ tháng 10 năm 2026 đến hết năm 2030">
-                <table class="table table-stack loan-table"><thead><tr><th scope="col">Ngân hàng</th><th scope="col">Tháng</th><th scope="col" class="num">Dư nợ gốc</th><th scope="col" class="num">Lãi suất</th><th scope="col" class="num">Tiền phải trả</th></tr></thead><tbody id="loanScheduleBody"></tbody></table>
+              <div class="table-wrap" tabindex="0" role="region" aria-label="Lịch lãi vay hàng tháng">
+                <table class="table table-stack loan-table"><thead><tr><th scope="col">Ngân hàng</th><th scope="col">Tháng</th><th scope="col" class="num">Dư nợ gốc</th><th scope="col" class="num">Lãi suất</th><th scope="col" class="num">Tiền phải trả</th><th scope="col"><span class="sr-only">Thao tác</span></th></tr></thead><tbody id="loanScheduleBody"></tbody></table>
               </div>
             </div>
           </section>
@@ -450,6 +436,29 @@
       </form>
     </section>
   </div>
+  <div class="overlay" id="loanOverlay" aria-hidden="true" data-unsafe-close>
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="loanFormTitle">
+      <div class="sheet-head"><h2 id="loanFormTitle">Thêm khoản vay</h2><button type="button" class="btn btn-ghost btn-icon close-btn" data-close-overlay="loanOverlay" aria-label="Đóng"><span data-icon="close"></span></button></div>
+      <form id="loanForm" class="form-grid">
+        <label class="field"><span class="field-label">Khoản vay / ngân hàng</span><input id="loanBank" maxlength="40" list="loanBankList" placeholder="VD: Shinhan, Vietcombank" autocomplete="off" required /><datalist id="loanBankList"></datalist></label>
+        <label class="field"><span class="field-label" id="loanMonthLabel">Tháng</span><input id="loanMonth" type="month" min="2026-10" max="2060-12" required /></label>
+        <label class="field"><span class="field-label">Dư nợ gốc đầu tháng (₫)</span><input id="loanPrincipal" inputmode="numeric" required /></label>
+        <label class="field"><span class="field-label">Lãi suất (%/năm)</span><input id="loanRate" type="number" step="any" min="0" max="100" inputmode="decimal" required /></label>
+        <label class="field"><span class="field-label">Số ngày tính lãi</span><input id="loanDays" type="number" min="1" max="31" step="1" required /></label>
+        <label class="field" id="loanPaymentField"><span class="field-label">Tiền phải trả tháng (₫)</span><input id="loanPayment" inputmode="numeric" /><button type="button" class="btn btn-ghost btn-sm" id="loanCalc">Tính tiền lãi theo dư nợ</button></label>
+        <fieldset class="field wide loan-repeat" id="loanRepeatBox">
+          <label class="check"><input type="checkbox" id="loanRepeat" /> <span>Tạo lịch cho nhiều tháng liên tiếp</span></label>
+          <div class="form-grid" id="loanRepeatFields" hidden>
+            <label class="field"><span class="field-label">Số tháng</span><input id="loanRepeatMonths" type="number" min="2" max="360" step="1" value="12" /></label>
+            <label class="field"><span class="field-label">Gốc trả mỗi tháng (₫)</span><input id="loanRepeatPrincipal" inputmode="numeric" value="0" /></label>
+          </div>
+          <p class="field-help" id="loanRepeatPreview" aria-live="polite"></p>
+        </fieldset>
+        <p class="field-help wide" id="loanFormHelp">Tiền phải trả = tiền lãi + gốc trả trong tháng (nếu có). Lãi tính theo ngày thực tế/365.</p>
+        <div class="sheet-actions wide"><button type="button" class="btn btn-danger btn-md" id="loanDelete" hidden>Xóa tháng này</button><button type="button" class="btn btn-secondary btn-md" data-close-overlay="loanOverlay">Hủy</button><button class="btn btn-primary btn-md submit-entry" type="submit" id="loanSave">Lưu lên Google Sheets</button></div>
+      </form>
+    </section>
+  </div>
   <div class="overlay" id="debtOverlay" aria-hidden="true" data-unsafe-close>
     <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="debtFormTitle">
       <div class="sheet-head"><h2 id="debtFormTitle">Thêm nợ</h2><button type="button" class="btn btn-ghost btn-icon close-btn" data-close-overlay="debtOverlay" aria-label="Đóng"><span data-icon="close"></span></button></div>
@@ -462,7 +471,7 @@
         <label class="field"><span class="field-label">Trạng thái</span><select id="debtStatus"><option value="active">Đang nợ</option><option value="paid">Đã trả hết</option></select></label>
         <label class="field"><span class="field-label">Ngày trả hết</span><input id="debtPaid" type="date" /></label>
         <label class="field wide"><span class="field-label">Ghi chú</span><input id="debtNotes" maxlength="500" /></label>
-        <p class="field-help wide">Khoản vay ngân hàng có lịch trả nợ đã lấy từ sheet Loans — không cần nhập lại ở đây. Khi số dư thay đổi, sửa khoản nợ và cập nhật ngày.</p>
+        <p class="field-help wide">Khoản vay có lịch trả hằng tháng hãy nhập ở trang Khoản vay — không cần nhập lại ở đây. Khi số dư thay đổi, sửa khoản nợ và cập nhật ngày.</p>
         <div class="sheet-actions wide"><button type="button" class="btn btn-secondary btn-md" data-close-overlay="debtOverlay">Hủy</button><button class="btn btn-primary btn-md submit-entry" type="submit">Lưu khoản nợ</button></div>
       </form>
     </section>

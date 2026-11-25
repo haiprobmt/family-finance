@@ -307,6 +307,34 @@ button.dl-item:hover { background: var(--color-surface-muted); }
 .dl-value { font-variant-numeric: tabular-nums; font-weight: 500; }
 .dl-pct { text-align: right; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 
+/* Loan schedule editing */
+.loan-repeat { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: var(--space-2); }
+.loan-edit-cell { text-align: right; white-space: nowrap; }
+#loanPaymentField .btn { justify-self: start; margin-top: var(--space-1); }
+
+/* Gauge (budget use) */
+.chart-gauge { display: grid; justify-items: center; gap: 0; margin: 0; }
+.gauge { width: 100%; max-width: 280px; height: auto; overflow: visible; }
+.gauge-zone { opacity: .22; }
+.zone-green { stroke: var(--color-success); } .zone-yellow { stroke: var(--color-brand-500); } .zone-red { stroke: var(--color-expense); }
+.gauge-value { stroke: var(--color-text-subtle); }
+.level-green .gauge-value { stroke: var(--color-success); } .level-yellow .gauge-value { stroke: var(--color-brand-500); } .level-red .gauge-value { stroke: var(--color-expense); }
+.gauge-needle { stroke: var(--color-text); stroke-width: 3; stroke-linecap: round; }
+.gauge-hub { fill: var(--color-text); }
+.gauge-scale { display: flex; justify-content: space-between; width: 100%; max-width: 280px; margin-top: -4px; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.gauge-center { display: grid; justify-items: center; gap: 2px; margin-top: var(--space-2); text-align: center; }
+.gauge-pct { font-size: 32px; line-height: 38px; font-weight: 600; color: var(--color-text); font-variant-numeric: tabular-nums; }
+.level-red .gauge-pct { color: var(--color-expense-text); }
+.gauge-caption { font-size: var(--text-sm); color: var(--color-text-muted); }
+.budget-gauge-layout { display: grid; gap: var(--space-5); align-items: center; }
+@media (min-width: 768px) { .budget-gauge-layout { grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); } }
+.budget-gauge-figures { display: grid; gap: var(--space-3); }
+@media (min-width: 1024px) { .budget-gauge-figures { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.gauge-figure { display: grid; gap: 2px; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: 8px; }
+.gauge-figure .gf-label { font-size: var(--text-sm); color: var(--color-text-muted); }
+.gauge-figure .gf-value { font-size: var(--text-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.gauge-figure .gf-help { font-size: var(--text-xs); color: var(--color-text-muted); }
+
 /* Modal / BottomSheet (shared .overlay) */
 .overlay { position: fixed; inset: 0; z-index: 50; display: none; align-items: flex-end; justify-content: center; background: rgb(16 24 40 / 40%); }
 .overlay.open { display: flex; }

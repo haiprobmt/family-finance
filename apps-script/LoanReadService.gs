@@ -1,5 +1,6 @@
-// Private loans (read-only). Optional table: Bank | Month | Principal | Rate | Interest | Days.
-// Rules preserved: only Shinhan/Techcombank, Techcombank excluded from 2026-11, no duplicates.
+// Private loans. Optional table: Bank | Month | Principal | Rate | Interest | Days.
+// Rules preserved: Techcombank excluded from 2026-11, no duplicate bank/month. Any bank name is
+// accepted (loans entered in the app, LoanWriteService.gs); Shinhan/Techcombank keep their rules.
 function readPrivateLoans(){
  const ss=SpreadsheetApp.getActiveSpreadsheet(),sheet=ss.getSheetByName('Loans');
  const result={start:'2026-10',end:'2030-12',records:[],extraDebt:0};
@@ -12,7 +13,7 @@ function readPrivateLoans(){
  for(const row of rows){
   if(!row[0])continue;
   const bank=String(row[0]),month=row[1] instanceof Date?Utilities.formatDate(row[1],ss.getSpreadsheetTimeZone(),'yyyy-MM'):String(row[1]);
-  if(!['Shinhan','Techcombank'].includes(bank)||!/^\d{4}-(0[1-9]|1[012])$/.test(month))throw new Error('Bank/Month trong Loans không hợp lệ');
+  if(!validLoanBank(bank)||!/^\d{4}-(0[1-9]|1[012])$/.test(month))throw new Error('Bank/Month trong Loans không hợp lệ');
   if(bank==='Techcombank'&&month>='2026-11')continue;
   const [principal,rate,interest,days]=row.slice(2,6).map(Number);
   if([principal,rate,interest,days].some(v=>!Number.isFinite(v)||v<0)||rate>1)throw new Error('Số liệu Loans không hợp lệ');
@@ -21,3 +22,4 @@ function readPrivateLoans(){
  }
  return result;
 }
+function validLoanBank(bank){return typeof bank==='string'&&bank.length>=1&&bank.length<=40&&bank.trim()===bank&&!/[\r\n\t|]/.test(bank);}

@@ -14,8 +14,10 @@ function renderLoanSchedule(){
     const r=calculateLoanPayment(source,loanRates),editable=!r.missing&&r.bank==='Techcombank'&&r.month>='2026-12';
     const actual=loanRates.actual[r.month];
     const rateCell=editable?`<input class="loan-actual-rate" type="number" min="0" max="100" step="any" inputmode="decimal" data-loan-month="${r.month}" value="${typeof actual==='number'?actual:''}" placeholder="${loanRates.forecast}" aria-label="Lãi suất thực tế Techcombank ${r.month.slice(5)}/${r.month.slice(0,4)}, phần trăm mỗi năm" /><small class="loan-rate-state">${r.rateType}: ${rate(r.rate)}</small>`:r.missing?'—':rate(r.rate);
-    return `<tr class="${r.missing?'row-missing':''}"><th scope="row" data-label="Ngân hàng">${escapeHtml(r.bank)}${r.missing?'<small class="unknown">Chưa có dữ liệu</small>':''}</th><td data-label="Tháng">${r.month.slice(5)}/${r.month.slice(0,4)}</td><td class="num" data-label="Dư nợ gốc">${r.missing?'—':money(r.principal)}</td><td class="num" data-label="Lãi suất">${rateCell}</td><td class="num" data-label="Tiền phải trả">${r.missing?'<span class="unknown">Thiếu</span>':loanPaymentMarkup(r)}</td></tr>`;
+    return `<tr class="${r.missing?'row-missing':''}"><th scope="row" data-label="Ngân hàng">${escapeHtml(r.bank)}${r.missing?'<small class="unknown">Chưa có dữ liệu</small>':''}</th><td data-label="Tháng">${r.month.slice(5)}/${r.month.slice(0,4)}</td><td class="num" data-label="Dư nợ gốc">${r.missing?'—':money(r.principal)}</td><td class="num" data-label="Lãi suất">${rateCell}</td><td class="num" data-label="Tiền phải trả">${r.missing?'<span class="unknown">Thiếu</span>':loanPaymentMarkup(r)}</td><td class="loan-edit-cell"><button type="button" class="btn btn-ghost btn-sm" data-loan-edit="${escapeHtml(r.bank)}" data-loan-month="${r.month}" aria-label="${r.missing?'Nhập':'Sửa'} ${escapeHtml(r.bank)} tháng ${r.month.slice(5)}/${r.month.slice(0,4)}">${r.missing?'Nhập':'Sửa'}</button></td></tr>`;
   }).join('');
+  const end=FFDomain.loan.scheduleEnd(LOAN_SCHEDULE),label=m=>m.slice(5)+'/'+m.slice(0,4);
+  $('#loanScheduleRange').textContent=label(LOAN_SCHEDULE.start)+' – '+label(end);
 }
 function weeklySpending(rows,start,end,today){return FFDomain.cashflow.weeklySpending(rows,start,end,today)}
 function renderWeekly(d){

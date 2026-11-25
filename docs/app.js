@@ -45,12 +45,7 @@ function renderHeader(){
 }
 function effectiveBudgets(){const mk=monthKey(activeMonth);return FB.effectiveBudgets(budgets,mk,homeLoanSummary(mk).total);}
 function renderHome(){
-  const mk=monthKey(activeMonth),t=totals(),remaining=t.income-t.expense,totalBudget=Object.values(effectiveBudgets()).reduce((a,b)=>a+(Number(b)||0),0),overBudget=totalBudget>0&&t.expense>totalBudget;
-  // Compact values on the dashboard; the full amount stays in title/aria-label.
-  for(const [id,value] of [['#expenseTotal',t.expense],['#incomeTotal',t.income],['#remainingTotal',remaining]]){const el=$(id);el.textContent=moneyMillions(value);el.title=money(value);el.setAttribute('aria-label',money(value));}
-  $('#remainingTotal').classList.toggle('negative',remaining<0);
-  // No income → savings rate is unknown, not 0%.
-  $('#savingRate').textContent=t.income?UIfmt.percent(remaining/t.income):'—';$('#savingRateHelp').textContent=t.income?'Ròng / thu nhập':'Chưa có thu nhập trong tháng';
+  const mk=monthKey(activeMonth),t=totals(),totalBudget=Object.values(effectiveBudgets()).reduce((a,b)=>a+(Number(b)||0),0),overBudget=totalBudget>0&&t.expense>totalBudget;
   const exp=currentTx().filter(t=>t.type==='Expense');const sums={};exp.forEach(t=>sums[t.category]=(sums[t.category]||0)+Number(t.amount));const debt=homeLoanSummary(mk);const paid=sums['loan-payment']||0;
   // Missing loan schedule is never shown as a confirmed number (BASELINE_AUDIT D6).
   const provisional=!!(totalBudget&&debt.missing&&!Object.prototype.hasOwnProperty.call(limitsAt(budgets,mk),'loan-payment'));
@@ -192,7 +187,10 @@ function renderBudgets(){
   $$('[data-budget]').forEach(i=>i.addEventListener('input',()=>{i.value=i.dataset.budget==='loan-payment'&&i.value.trim()===''?'':new Intl.NumberFormat('vi-VN').format(parseDigits(i.value))}));
   // Summary uses the same totals as the dashboard (effective limits incl. scheduled loan budget).
   const total=Object.values(eff).reduce((a,b)=>a+(Number(b)||0),0),used=Object.values(spent).reduce((a,b)=>a+b,0),left=total-used;
-  $('#budgetSummary').innerHTML=UIc.metricCard({label:'Tổng hạn mức',valueHtml:total?UIc.money(total):'<span class="muted">Chưa đặt</span>',helperHtml:!manualDebt&&debt.missing?'<span class="unknown">Trả nợ tạm tính</span>':'Gồm ngân sách trả nợ'})+UIc.metricCard({label:'Đã chi',valueHtml:UIc.money(used,{semantic:'expense'}),helperHtml:'Khoản chi đã ghi'})+UIc.metricCard({label:left<0?'Vượt ngân sách':'Còn lại',valueHtml:total?UIc.money(Math.abs(left),{semantic:left<0?'expense':null}):'—',helperHtml:'Hạn mức − đã chi'})+UIc.metricCard({label:'Đã dùng',valueHtml:total?(hideAmounts?'••%':Math.round(used/total*100)+'%'):'—',helperHtml:'Thanh hiển thị tối đa 100%'});
+  const ratio=total?used/total:null,pct=ratio===null?'—':hideAmounts?'••%':Math.round(ratio*100)+'%';
+  const figure=(label,valueHtml,help)=>`<div class="gauge-figure"><span class="gf-label">${label}</span><span class="gf-value">${valueHtml}</span><span class="gf-help">${help}</span></div>`;
+  $('#budgetSummary').innerHTML=FFUI.chart.gauge({ratio,level:total?budgetLevel(used,total):'unset',caption:total?`Đã dùng ${pct} ngân sách tháng: ${money(used)} trên ${money(total)}`:'Chưa đặt ngân sách tháng',centerHtml:`<span class="gauge-pct">${pct}</span><span class="gauge-caption">${total?(left<0?'Đã vượt ngân sách':'Đã dùng ngân sách'):'Chưa đặt ngân sách'}</span>`})
+    +`<div class="budget-gauge-figures">${figure('Tổng hạn mức',total?UIc.money(total):'<span class="muted">Chưa đặt</span>',!manualDebt&&debt.missing?'<span class="unknown">Trả nợ tạm tính</span>':'Gồm ngân sách trả nợ')+figure('Đã chi',UIc.money(used,{semantic:'expense'}),'Khoản chi đã ghi')+figure(left<0?'Vượt ngân sách':'Còn lại',total?UIc.money(Math.abs(left),{semantic:left<0?'expense':null}):'—','Hạn mức − đã chi')}</div>`;
 }
 function parseDigits(v){return FM.parseDigits(v)}
 function openEntry(type='Expense'){editingTransactionId=null;entryType=type;selectedCategory=(type==='Expense'?EXPENSE_CATS:INCOME_CATS)[0][0];$('#entryForm').reset();$('#dateInput').value=dateISO();$('#personInput').value=read('lastPerson','Vợ');renderEntry();openOverlay('#entryOverlay');setTimeout(()=>$('#amountInput').focus(),220)}
