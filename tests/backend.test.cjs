@@ -21,7 +21,6 @@ test('migrations: dry-run writes nothing; apply is additive, logged, repeatable;
   assert.equal(dry.dryRun, true);
   assert.deepEqual(dry.results.map(r => r.status), ['pending', 'pending', 'pending']);
   assert.deepEqual(JSON.parse(JSON.stringify(ss.getSheets().map(s => [s.getName(), s.dump()]))), JSON.parse(JSON.stringify(before)), 'dry run changes nothing');
-  assert.equal(rt.post(auth({ action: 'ext_save', collection: 'assets', values: '[]', revision: '' })).code, 'FEATURE_NOT_MIGRATED');
   const applied = JSON.parse(rt.call('migrationsApply'));
   assert.deepEqual(applied.results.map(r => r.status), ['applied-now', 'applied-now', 'applied-now']);
   for (const name of ['Assets', 'AssetValuations', 'RecurringRules', 'Debts', 'Migrations']) assert.ok(ss.getSheetByName(name), name);
@@ -37,6 +36,30 @@ test('migrations: dry-run writes nothing; apply is additive, logged, repeatable;
   assert.throws(() => rt2.call('migrationsApply'), /cấu trúc khác/);
   assert.equal(ss2.getSheetByName('RecurringRules'), null, 'aborted before any write');
   assert.equal(ss2.getSheetByName('Migrations'), null);
+});
+
+test('ext requests apply pending migrations by themselves (no manual step after a deploy); legacy actions never do', () => {
+  const { ss, rt } = world();
+  const legacyBefore = ['Transactions', 'Budgets', 'Loans', 'FinanceSettings'].map(n => ss.getSheetByName(n) && ss.getSheetByName(n).dump());
+  assert.equal(rt.post(auth({ action: 'snapshot' })).ok, true);
+  assert.equal(ss.getSheetByName('Debts'), null, 'core v3/APK traffic does not create sheets');
+  const snap = rt.post(auth({ action: 'ext_snapshot' }));
+  assert.equal(snap.ok, true); assert.equal(snap.migrationError, undefined);
+  assert.deepEqual(snap.schema, ['2026-11-01-assets', '2026-11-02-recurring', '2026-11-25-debts']);
+  for (const n of ['assets', 'valuations', 'recurring', 'debts']) assert.equal(snap.collections[n].available, true, n);
+  assert.deepEqual(['Transactions', 'Budgets', 'Loans', 'FinanceSettings'].map(n => ss.getSheetByName(n) && ss.getSheetByName(n).dump()), legacyBefore, 'legacy sheets untouched');
+  assert.equal(ss.getSheetByName('Migrations').dump().length, 4);
+  rt.post(auth({ action: 'ext_snapshot' }));
+  assert.equal(ss.getSheetByName('Migrations').dump().length, 4, 'later requests do nothing');
+  // A sheet with the wrong structure: nothing is written, the app is told why, core sync still works.
+  const { ss: ss2, rt: rt2 } = world();
+  ss2.seed('Debts', [['something', 'else']]);
+  const bad = rt2.post(auth({ action: 'ext_snapshot' }));
+  assert.equal(bad.ok, false, 'Debts sheet with other headers is not read');
+  assert.equal(ss2.getSheetByName('Assets'), null, 'aborted before any write');
+  const bad2 = rt2.post(auth({ action: 'ext_save', collection: 'assets', values: '[]', revision: '' }));
+  assert.equal(bad2.code, 'FEATURE_NOT_MIGRATED');
+  assert.equal(rt2.post(auth({ action: 'snapshot' })).ok, true, 'core sync unaffected');
 });
 
 test('ext collections: round-trip, typed values, formula/date safety, revisions and COLLECTION_CONFLICT', () => {

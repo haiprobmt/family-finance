@@ -1,0 +1,118 @@
+name: Deploy Apps Script
+# Pushes apps-script/dist/Code.gs + appsscript.json to the family's bound Apps Script project and
+# moves the EXISTING web app deployment to the new version, so the /exec URL never changes and
+# nobody pastes Code.gs by hand. New sheets (migrations) are then created by the backend itself
+# on the app's next sync. One-time setup: README → "Automatic Apps Script updates".
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   CLASPRC_JSON               contents of ~/.clasprc.json after `npx @google/clasp@3.4.1 login`
+#   APPS_SCRIPT_ID             Apps Script editor → Project Settings → Script ID
+#   APPS_SCRIPT_DEPLOYMENT_ID  Deploy → Manage deployments → Deployment ID (the part of the
+#                              /exec URL between /s/ and /exec)
+# Runs only for pushes to main (and by hand); pull requests and forks never see the secrets.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps-script/**'
+      - 'docs/src/domain/**'
+      - '.github/workflows/deploy-apps-script.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deploy-apps-script
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLASP: '@google/clasp@3.4.1'
+    steps:
+      - name: Check setup
+        id: setup
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+          APPS_SCRIPT_DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
+        run: |
+          missing=""
+          for name in CLASPRC_JSON APPS_SCRIPT_ID APPS_SCRIPT_DEPLOYMENT_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::warning::Automatic Apps Script deploy is not set up (missing secrets:$missing). See README → Automatic Apps Script updates."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.setup.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          node-version: 22
+
+      # Never deploy a backend whose tests fail or whose bundle is stale (contract test checks it).
+      - name: Test
+        if: steps.setup.outputs.ready == 'true'
+        run: npm test
+
+      - name: Prepare project files
+        if: steps.setup.outputs.ready == 'true'
+        env:
+          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+        run: |
+          build="${GITHUB_SHA::12}"
+          mkdir -p "$RUNNER_TEMP/gas"
+          sed "s/^const BUILD_ID='dev';/const BUILD_ID='$build';/" apps-script/dist/Code.gs > "$RUNNER_TEMP/gas/Code.gs"
+          grep -q "^const BUILD_ID='$build';" "$RUNNER_TEMP/gas/Code.gs" || { echo "::error::BUILD_ID marker not found in Code.gs"; exit 1; }
+          cp apps-script/appsscript.json "$RUNNER_TEMP/gas/appsscript.json"
+          node -e 'process.stdout.write(JSON.stringify({ scriptId: process.env.APPS_SCRIPT_ID, rootDir: "." }))' > "$RUNNER_TEMP/gas/.clasp.json"
+          echo "BUILD=$build" >> "$GITHUB_ENV"
+
+      - name: Write clasp credentials
+        if: steps.setup.outputs.ready == 'true'
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          umask 077
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          node -e 'JSON.parse(require("fs").readFileSync(process.env.HOME + "/.clasprc.json", "utf8"))' \
+            || { echo "::error::CLASPRC_JSON is not valid JSON. Paste the whole contents of .clasprc.json."; exit 1; }
+
+      # Replaces every file in the Apps Script project with Code.gs + appsscript.json.
+      - name: Push code
+        if: steps.setup.outputs.ready == 'true'
+        working-directory: ${{ runner.temp }}/gas
+        run: npx --yes "$CLASP" push --force
+
+      # Creates a new version and points the existing deployment at it (same /exec URL).
+      - name: Update deployment
+        if: steps.setup.outputs.ready == 'true'
+        working-directory: ${{ runner.temp }}/gas
+        env:
+          APPS_SCRIPT_DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
+        run: npx --yes "$CLASP" update-deployment "$APPS_SCRIPT_DEPLOYMENT_ID" --description "GitHub $BUILD"
+
+      - name: Verify the web app serves this build
+        if: steps.setup.outputs.ready == 'true'
+        env:
+          APPS_SCRIPT_DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
+        run: |
+          url="https://script.google.com/macros/s/$APPS_SCRIPT_DEPLOYMENT_ID/exec?build=1"
+          for attempt in 1 2 3 4 5 6; do
+            body="$(curl -sSL --max-time 30 "$url" || true)"
+            if printf '%s' "$body" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.exit(j.ok&&j.build===process.env.BUILD?0:1)}catch{process.exit(1)}})'; then
+              echo "Web app is serving build $BUILD."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::The deployment was updated but the web app does not answer with build $BUILD. If this is the first automatic deploy, open the Apps Script editor, choose the function 'setup', press Run and allow the permissions once, then re-run this workflow."
+          exit 1
+
+      - name: Remove credentials
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"

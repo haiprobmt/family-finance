@@ -22,7 +22,7 @@
         let snap;
         try { snap = await request({ action: 'ext_snapshot' }); }
         catch (e) { if (/không được hỗ trợ/.test(e.message || '')) { state.supported = false; state.lastError = null; persist(); return 'unsupported'; } state.lastError = e.message; throw e; }
-        state.supported = true; state.lastError = null;
+        state.supported = true; state.lastError = null; state.migrationError = snap.migrationError || null;
         for (const n of NAMES) {
           const remote = snap.collections && snap.collections[n];
           let local = E.rebaseInitial(state.collections[n], remote);

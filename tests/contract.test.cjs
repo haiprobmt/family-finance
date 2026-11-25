@@ -61,6 +61,20 @@ test('apps-script/Domain.gs is generated from docs/src/domain (no drift)', () =>
   assert.deepEqual(onDisk.sort(), manifest.slice().sort(), 'every deployed .gs file is listed in files.json');
 });
 
+test('automatic deploy contract: manifest keeps the web app settings; Code.gs carries the BUILD_ID marker', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'apps-script', 'appsscript.json'), 'utf8'));
+  // Without this block an API deploy would drop the web app entry point and break the /exec URL.
+  assert.deepEqual(manifest.webapp, { executeAs: 'USER_DEPLOYING', access: 'ANYONE_ANONYMOUS' });
+  const bundle = fs.readFileSync(path.join(ROOT, 'apps-script', 'dist', 'Code.gs'), 'utf8');
+  assert.equal(bundle.match(/^const BUILD_ID='dev';$/gm).length, 1, 'the workflow replaces exactly this line');
+  const rt = loadBackend(['apps-script/dist/Code.gs'], { spreadsheet: syn.seedSpreadsheet(new FakeSpreadsheet()), properties: { FAMILY_ACCESS_TOKEN: syn.TEST_TOKEN } });
+  assert.equal(JSON.parse(rt.context.doGet({ parameter: { build: '1' } }).getContent()).build, 'dev');
+  assert.equal(rt.get().build, undefined, 'plain GET unchanged for old clients');
+  const wf = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'deploy-apps-script.yml'), 'utf8');
+  assert.match(wf, /const BUILD_ID='dev';/, 'workflow sed pattern matches the marker');
+  assert.doesNotMatch(wf, /pull_request/, 'secrets are never exposed to pull request runs');
+});
+
 test('deployable single-file bundle (apps-script/dist/Code.gs) answers APK/v3 traffic exactly like legacy Code.gs', () => {
   const legacy = scenario.run(['tests/legacy/Code.legacy.gs']);
   const bundle = scenario.run(['apps-script/dist/Code.gs']);

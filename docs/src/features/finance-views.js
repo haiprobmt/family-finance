@@ -94,8 +94,9 @@ function fvExtBanner() {
   const st = extStore.state(), notes = [];
   if (!endpoint()) notes.push('Chưa kết nối Google Sheets: tài sản và khoản định kỳ đang lưu trên máy này.');
   else if (st.supported === false) notes.push('Apps Script đang chạy chưa có tính năng Tài sản/Định kỳ (cần triển khai Code.gs 3.0). Dữ liệu đang chỉ lưu trên máy này.');
-  else if (FFExt.NAMES.some(n => extStore.collection(n).outdated)) notes.push('Apps Script đang chạy là bản cũ, chưa đồng bộ được khoản nợ nhập tay: cập nhật Code.gs (apps-script/dist/Code.gs), triển khai phiên bản mới rồi chạy migrationsApply. Khoản nợ đang chỉ lưu trên máy này.');
-  else if (FFExt.NAMES.some(n => extStore.collection(n).available === false)) notes.push('Google Sheets chưa được bật tính năng này (chủ sở hữu cần chạy migrationsApply). Dữ liệu đang chỉ lưu trên máy này.');
+  else if (FFExt.NAMES.some(n => extStore.collection(n).outdated)) notes.push('Apps Script trên Google chưa có bản mới nên chưa đồng bộ được khoản nợ nhập tay. Bản mới được GitHub tự triển khai (workflow “Deploy Apps Script”, xem README). Khoản nợ đang chỉ lưu trên máy này.');
+  else if (st.migrationError) notes.push(st.migrationError + ' Dữ liệu đang chỉ lưu trên máy này.');
+  else if (FFExt.NAMES.some(n => extStore.collection(n).available === false)) notes.push('Google Sheets chưa được bật tính năng này (chạy migrationsApply trong Apps Script). Dữ liệu đang chỉ lưu trên máy này.');
   if (st.lastError) notes.push('Lỗi đồng bộ gần nhất: ' + st.lastError);
   $('#extBanner').hidden = !notes.length;
   $('#extBanner').innerHTML = notes.length ? C.alert({ variant: st.lastError ? 'danger' : 'warning', title: 'Dữ liệu chưa đồng bộ đầy đủ', bodyHtml: notes.map(n => `<p>${escapeHtml(n)}</p>`).join('') }) : '';

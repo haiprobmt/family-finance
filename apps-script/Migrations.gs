@@ -1,9 +1,12 @@
 // Versioned, additive, repeatable schema migrations (implementation/MIGRATION_PLAN.md).
-// Run from the Apps Script editor against the COPIED TEST spreadsheet first:
-//   migrationsDryRun()  → shows what would change; writes nothing.
+// They only ever CREATE new sheets with fixed headers, validated before any write:
+//   migrationsDryRun()  → shows what would change; writes nothing (run from the editor).
 //   migrationsApply()   → creates missing sheets, logs id/timestamp/counts/result only.
+//   autoMigrate()       → the same apply, run by doPost on ext_* requests when a migration is
+//                         pending, so a deploy needs no manual step. On any validation error it
+//                         writes nothing and the error is reported to the app instead.
 // Never renames, reorders, deletes or rewrites legacy sheets (Transactions, Budgets, Loans,
-// FinanceSettings). Never invoked from doPost.
+// FinanceSettings). Not callable as a POST action.
 const MIGRATION_LOG='Migrations';
 const MIGRATION_LOG_HEADERS=['MigrationId','AppliedAt','Result','Counts'];
 const MIGRATIONS=[
@@ -21,9 +24,13 @@ function legacyCounts(){
   return out;
 }
 function runMigrations(options){
-  const dryRun=!(options&&options.dryRun===false),ss=SpreadsheetApp.getActiveSpreadsheet();
+  // doPost already holds the script lock when it calls autoMigrate.
+  if(options&&options.locked)return migrateLocked(options);
   const lock=LockService.getScriptLock();lock.waitLock(20000);
-  try{
+  try{return migrateLocked(options);}finally{lock.releaseLock();}
+}
+function migrateLocked(options){
+  const dryRun=!(options&&options.dryRun===false),ss=SpreadsheetApp.getActiveSpreadsheet();
     const tx=ss.getSheetByName(SHEET_NAME);
     if(tx&&tx.getLastRow()>0){const h=tx.getRange(1,1,1,8).getValues()[0];if(h.join('|')!==TX_HEADERS.join('|'))throw new Error('Transactions headers không khớp; dừng migration, chưa ghi gì.');}
     const before=legacyCounts(),applied=new Set(appliedMigrations()),results=[];
@@ -51,7 +58,13 @@ function runMigrations(options){
       if(JSON.stringify(after)!==JSON.stringify(before))throw new Error('Số dòng sheet cũ thay đổi trong migration — khôi phục bản sao lưu và kiểm tra.');
     }
     return {dryRun,results,legacyCounts:before};
-  }finally{lock.releaseLock();}
+}
+// Returns null when nothing is pending or everything applied, else the reason it did not apply.
+function autoMigrate(){
+  const applied=new Set(appliedMigrations());
+  if(MIGRATIONS.every(m=>applied.has(m.id)))return null;
+  try{runMigrations({dryRun:false,locked:true});return null;}
+  catch(error){return 'Chưa tạo được sheet mới: '+String(error.message||error);}
 }
 function migrationsDryRun(){return JSON.stringify(runMigrations({dryRun:true}),null,2);}
 function migrationsApply(){return JSON.stringify(runMigrations({dryRun:false}),null,2);}

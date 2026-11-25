@@ -4,6 +4,9 @@
 //   LoanReadService.gs, Extensions.gs (additive ext_* actions), Migrations.gs, Assistant.gs.
 // Compatibility: action names, request fields, responses and conflict codes are unchanged
 // for APK 2.3.0 and older PWA builds (see implementation/API_COMPATIBILITY.md).
+// Replaced with the commit id by the "Deploy Apps Script" GitHub workflow; doGet reports it so the
+// workflow can confirm the new code is live. 'dev' = pasted by hand or local tests.
+const BUILD_ID='dev';
 const SHEET_NAME='Transactions';
 const BUDGET_SHEET='Budgets';
 const BUDGET_CATEGORIES=['food','grocery','kids','transport','home','bills','health','couple-allowance','other','loan-payment'];
@@ -28,7 +31,11 @@ function authenticate(p){
 // Text written to Sheets is truncated and protected against formula injection.
 function literal(value,max){const text=String(value||'').slice(0,max||2000);return /^[=+@-]/.test(text)?"'"+text:text;}
 function formatSheetDate(value,pattern){return value instanceof Date?Utilities.formatDate(value,SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),pattern||'yyyy-MM-dd'):String(value==null?'':value);}
-function doGet(){return json({ok:true,apiVersion:3,message:'Family Finance API. Use authenticated POST.'});}
+// ?build=1 is the deploy check (no data, no token); the plain response stays identical for old clients.
+function doGet(e){
+  if(e&&e.parameter&&e.parameter.build)return json({ok:true,apiVersion:3,build:BUILD_ID});
+  return json({ok:true,apiVersion:3,message:'Family Finance API. Use authenticated POST.'});
+}
 function doPost(e){
   const p=e&&e.parameter||{};
   try{
@@ -42,8 +49,10 @@ function doPost(e){
       if(p.action==='snapshot')return json(snapshot());
       if(p.action==='save_budgets')return json(saveBudgets(p));
       if(['v3_create','v3_update','v3_delete'].includes(p.action))return json(mutateTransaction({...p,action:p.action.slice(3)}));
-      if(p.action==='ext_snapshot')return json(extSnapshot());
-      if(p.action==='ext_save')return json(extSave(p));
+      // 3.0 collections only: new additive migrations apply themselves on the first ext request
+      // after a deploy (Migrations.gs autoMigrate). Legacy/APK actions above never trigger it.
+      if(p.action==='ext_snapshot'){const migrationError=autoMigrate(),snap=extSnapshot();if(migrationError)snap.migrationError=migrationError;return json(snap);}
+      if(p.action==='ext_save'){autoMigrate();return json(extSave(p));}
       throw new Error('Thao tác không được hỗ trợ. Hãy cập nhật APK và Apps Script cùng phiên bản.');
     }finally{lock.releaseLock();}
   }catch(error){return json({ok:false,error:String(error.message||error)});}

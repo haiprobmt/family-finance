@@ -95,7 +95,7 @@ test('Thêm nợ on an older Code.gs: kept on the device, banner says to update 
     await a.page.fill('#debtName', 'Vay mẫu');
     await a.page.fill('#debtBalance', '1000000');
     await a.page.click('#debtForm .submit-entry');
-    await a.page.waitForFunction(() => /bản cũ/.test(document.querySelector('#extBanner').textContent));
+    await a.page.waitForFunction(() => /chưa có bản mới/.test(document.querySelector('#extBanner').textContent));
     assert.match(await a.page.textContent('#liabilitySummary'), /Vay mẫu/, 'debt still counted on this device');
     await addAsset(a, { name: 'Tài khoản mẫu', value: 1000000 });
     await a.page.waitForFunction(() => JSON.parse(localStorage.getItem('ffpages:ext_cache_v1')).collections.assets.pending === null);
@@ -220,7 +220,7 @@ test('service worker caches only allowlisted static files and serves the shell o
     await d.page.goto(w.base);
     await d.page.evaluate(() => navigator.serviceWorker.ready);
     const cached = await d.page.evaluate(async () => { const out = []; for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) out.push(r.url); return { keys: await caches.keys(), urls: out }; });
-    assert.deepEqual(cached.keys, ['family-finance-pages-v7']);
+    assert.deepEqual(cached.keys, ['family-finance-pages-v8']);
     assert.ok(cached.urls.length >= 30);
     assert.ok(cached.urls.every(u => u.startsWith(w.base)), 'no third-party or API responses cached');
     await d.context.setOffline(true);
