@@ -283,7 +283,7 @@
           <div class="metric-grid metric-grid-3">
             <div class="metric"><span class="metric-label">Thu nhập lũy kế</span><span class="metric-value money money-income" id="cumulativeIncome">—</span><span class="metric-helper">Từ 26/08/2026 đến khoản thu mới nhất</span></div>
             <div class="metric"><span class="metric-label">Chi tiêu lũy kế</span><span class="metric-value money money-expense" id="cumulativeExpense">—</span><span class="metric-helper">Từ 26/08/2026 đến hôm nay</span></div>
-            <div class="metric metric-emphasis"><span class="metric-label">Tiết kiệm tích lũy</span><span class="metric-value money" id="accumulatedSavingsValue">—</span><span class="metric-helper">Thu nhập − chi tiêu lũy kế</span></div>
+            <div class="metric metric-emphasis"><span class="metric-label">Tiết kiệm tích lũy</span><span class="metric-value money" id="accumulatedSavingsValue">—</span><span class="metric-helper" id="accumulatedSavingsHelp">Thu nhập − chi tiêu lũy kế</span></div>
           </div>
           <section class="card card-default" aria-labelledby="dashboardTrendTitle">
             <header class="card-header"><div class="card-heading"><h2 class="card-title" id="dashboardTrendTitle">Thu – chi 6 tháng</h2><p class="card-subtitle" id="dashboardAverageLabel"></p></div><div class="card-actions"><span class="badge badge-success">Thực tế</span></div></header>
@@ -423,8 +423,9 @@
       <form id="assetForm" class="form-grid">
         <label class="field"><span class="field-label">Loại</span><select id="assetType"></select></label>
         <label class="field"><span class="field-label">Tên</span><input id="assetName" maxlength="120" required /></label>
-        <label class="field"><span class="field-label">Giá trị hiện tại (₫)</span><input id="assetValue" inputmode="numeric" /></label>
-        <label class="field"><span class="field-label">Ngày định giá</span><input id="assetValuationDate" type="date" /></label>
+        <label class="field" id="assetValueField"><span class="field-label">Giá trị hiện tại (₫)</span><input id="assetValue" inputmode="numeric" /></label>
+        <label class="field" id="assetValuationDateField"><span class="field-label">Ngày định giá</span><input id="assetValuationDate" type="date" /></label>
+        <p class="field-help wide" id="assetLinkedHelp" hidden></p>
         <label class="field"><span class="field-label">Tỷ lệ sở hữu (%)</span><input id="assetShare" type="number" min="1" max="100" step="any" value="100" required /></label>
         <label class="field"><span class="field-label">Ngày mua/mở</span><input id="assetAcqDate" type="date" /></label>
         <label class="field"><span class="field-label">Giá mua (₫)</span><input id="assetAcqValue" inputmode="numeric" /></label>

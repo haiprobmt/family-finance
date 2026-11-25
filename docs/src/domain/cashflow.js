@@ -35,6 +35,8 @@
     const expense = sum(valid.filter(r => r.type === 'Expense' && String(r.date) <= today));
     return { start, end, expenseEnd: today, income, expense, savings: end ? income - expense : null };
   }
+  // Accumulated savings counting only transactions dated on/before the cut-off (null = no income yet).
+  function savingsAt(rows, cutoff) { return accumulatedSavings(rows.filter(r => String(r.date) <= cutoff), cutoff).savings; }
   function dashboardData(rows, month, months = 6) {
     const count = Math.max(1, Math.min(12, Math.trunc(Number(months) || 1)));
     const [year, number] = month.split('-').map(Number);
@@ -55,5 +57,5 @@
     return rows.filter(r => (!month || inMonth(r, month)) && (!type || r.type === type) && (!category || r.category === category));
   }
 
-  D.cashflow = { monthTotals, categoryTotals, weeklySpending, accumulatedSavings, dashboardData, sourceRows };
+  D.cashflow = { monthTotals, categoryTotals, weeklySpending, accumulatedSavings, savingsAt, dashboardData, sourceRows };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

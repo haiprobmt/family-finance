@@ -37,6 +37,8 @@ function renderAccumulatedSavings(){
   $('#cumulativeExpense').title='Từ 26/08/2026 đến hôm nay';
   $('#accumulatedSavingsValue').textContent=d.end?money(d.savings):'—';
   $('#accumulatedSavingsValue').classList.toggle('negative',d.savings!==null&&d.savings<0);
+  const cashAsset=typeof extStore!=='undefined'?extStore.values('assets').find(a=>a.id===FFDomain.netWorth.linkedCashId(extStore.values('assets'))):null;
+  $('#accumulatedSavingsHelp').textContent='Thu nhập − chi tiêu lũy kế'+(cashAsset?' · là giá trị “'+cashAsset.name+'” trong Tài sản':'');
   $('#accumulatedSavingsValue').setAttribute('aria-label',d.end?'Tiết kiệm tích lũy: '+money(d.savings):'Chưa có thu nhập để tính tiết kiệm');
 }
 let dashboardMonths=6,dashboardDetailMonth=null;
