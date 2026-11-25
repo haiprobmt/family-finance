@@ -30,8 +30,8 @@
             <li><a class="side-link" href="#/tong-quan" data-nav="home"><span data-icon="dashboard"></span><span class="side-label">Tổng quan</span></a></li>
             <li><a class="side-link" href="#/giao-dich" data-nav="history"><span data-icon="transactions"></span><span class="side-label">Giao dịch</span></a></li>
             <li><a class="side-link" href="#/ngan-sach" data-nav="budget"><span data-icon="budget"></span><span class="side-label">Ngân sách</span></a></li>
-            <li><a class="side-link" href="#/tai-san" data-nav="assets"><span data-icon="assets"></span><span class="side-label">Tài sản &amp; Nợ</span></a></li>
             <li><a class="side-link" href="#/khoan-vay" data-nav="loans"><span data-icon="loans"></span><span class="side-label">Khoản vay</span></a></li>
+            <li><a class="side-link" href="#/tai-san" data-nav="assets"><span data-icon="assets"></span><span class="side-label">Tài sản &amp; Nợ</span></a></li>
             <li><a class="side-link" href="#/lich" data-nav="plan"><span data-icon="calendar"></span><span class="side-label">Lịch tài chính</span></a></li>
             <li><a class="side-link" href="#/ai-advisor" data-nav="ai"><span data-icon="advisor"></span><span class="side-label">AI Advisor</span></a></li>
             <li><a class="side-link" href="#/bao-cao" data-nav="reports"><span data-icon="reports"></span><span class="side-label">Báo cáo</span></a></li>
@@ -155,29 +155,6 @@
           </div>
         </section>
 
-        <!-- Tài sản & Nợ -->
-        <section class="view" id="assetsView" aria-labelledby="assetsTitle">
-          <header class="page-header">
-            <div class="page-header-text"><h1 class="page-title" id="assetsTitle" tabindex="-1">Tài sản &amp; Nợ</h1><p class="page-subtitle">Tài sản trừ dư nợ tại cùng ngày chốt. Thiếu định giá hoặc lịch vay thì không tính tổng.</p></div>
-            <div class="page-actions"><button type="button" class="btn btn-secondary btn-md" id="addDebtBtn"><span data-icon="plus"></span><span class="btn-label">Thêm nợ</span></button><button type="button" class="btn btn-primary btn-md" id="addAssetBtn"><span data-icon="plus"></span><span class="btn-label">Thêm tài sản</span></button></div>
-          </header>
-          <div id="extBanner" role="status" hidden></div>
-          <section class="card card-default" aria-labelledby="netWorthCardTitle">
-            <header class="card-header"><div class="card-heading"><h2 class="card-title" id="netWorthCardTitle">Giá trị ròng</h2></div><div class="card-actions"><label class="field field-inline"><span class="field-label">Ngày chốt</span><input id="netWorthCutoff" type="date" /></label></div></header>
-            <div class="card-body"><div id="netWorthSummary"></div></div>
-          </section>
-          <div class="grid">
-            <section class="card card-default d-8" aria-labelledby="assetListTitle">
-              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="assetListTitle">Tài sản</h2><p class="card-subtitle">Giá trị theo tỷ lệ sở hữu, định giá gần nhất trước ngày chốt.</p></div></header>
-              <div class="card-body"><div id="assetConflict" hidden></div><div id="assetList"></div></div>
-            </section>
-            <section class="card card-default d-4" aria-labelledby="liabilityTitle">
-              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="liabilityTitle">Nợ phải trả</h2><p class="card-subtitle">Dư nợ vay theo lịch tháng chốt và các khoản nợ bạn nhập.</p></div><div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" data-action="add-debt"><span data-icon="plus"></span><span class="btn-label">Thêm nợ</span></button></div></header>
-              <div class="card-body"><div id="debtConflict" hidden></div><div id="liabilitySummary"></div></div>
-            </section>
-          </div>
-        </section>
-
         <!-- Khoản vay -->
         <section class="view" id="loansView" aria-labelledby="loansTitle">
           <header class="page-header">
@@ -214,6 +191,29 @@
               <div id="simulatorResult" aria-live="polite"></div>
             </div>
           </section>
+        </section>
+
+        <!-- Tài sản & Nợ -->
+        <section class="view" id="assetsView" aria-labelledby="assetsTitle">
+          <header class="page-header">
+            <div class="page-header-text"><h1 class="page-title" id="assetsTitle" tabindex="-1">Tài sản &amp; Nợ</h1><p class="page-subtitle">Tài sản trừ dư nợ tại cùng ngày chốt. Thiếu định giá hoặc lịch vay thì không tính tổng.</p></div>
+            <div class="page-actions"><button type="button" class="btn btn-secondary btn-md" id="addDebtBtn"><span data-icon="plus"></span><span class="btn-label">Thêm nợ</span></button><button type="button" class="btn btn-primary btn-md" id="addAssetBtn"><span data-icon="plus"></span><span class="btn-label">Thêm tài sản</span></button></div>
+          </header>
+          <div id="extBanner" role="status" hidden></div>
+          <section class="card card-default" aria-labelledby="netWorthCardTitle">
+            <header class="card-header"><div class="card-heading"><h2 class="card-title" id="netWorthCardTitle">Giá trị ròng</h2></div><div class="card-actions"><label class="field field-inline"><span class="field-label">Ngày chốt</span><input id="netWorthCutoff" type="date" /></label></div></header>
+            <div class="card-body"><div id="netWorthSummary"></div></div>
+          </section>
+          <div class="grid">
+            <section class="card card-default d-8" aria-labelledby="assetListTitle">
+              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="assetListTitle">Tài sản</h2><p class="card-subtitle">Giá trị theo tỷ lệ sở hữu, định giá gần nhất trước ngày chốt.</p></div></header>
+              <div class="card-body"><div id="assetConflict" hidden></div><div id="assetList"></div></div>
+            </section>
+            <section class="card card-default d-4" aria-labelledby="liabilityTitle">
+              <header class="card-header"><div class="card-heading"><h2 class="card-title" id="liabilityTitle">Nợ phải trả</h2><p class="card-subtitle">Dư nợ vay theo lịch tháng chốt và các khoản nợ bạn nhập.</p></div><div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" data-action="add-debt"><span data-icon="plus"></span><span class="btn-label">Thêm nợ</span></button></div></header>
+              <div class="card-body"><div id="debtConflict" hidden></div><div id="liabilitySummary"></div></div>
+            </section>
+          </div>
         </section>
 
         <!-- Lịch tài chính -->
@@ -354,7 +354,7 @@
     <button type="button" class="nav-item" data-nav="home"><span data-icon="dashboard"></span><b>Tổng quan</b></button>
     <button type="button" class="nav-item" data-nav="history"><span data-icon="transactions"></span><b>Giao dịch</b></button>
     <button type="button" class="nav-item" data-nav="budget"><span data-icon="budget"></span><b>Ngân sách</b></button>
-    <button type="button" class="nav-item" data-nav="assets"><span data-icon="assets"></span><b>Tài sản</b></button>
+    <button type="button" class="nav-item" data-nav="loans"><span data-icon="loans"></span><b>Khoản vay</b></button>
     <button type="button" class="nav-item" data-nav="more" aria-haspopup="dialog" aria-controls="moreOverlay"><span data-icon="more"></span><b>Khác</b></button>
   </nav>
   <button type="button" class="fab nav-add" data-open-entry="Expense" aria-label="Thêm khoản chi hoặc thu nhập" aria-haspopup="dialog"><span data-icon="plus"></span></button>
@@ -363,7 +363,7 @@
     <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="moreTitle">
       <div class="sheet-head"><h2 id="moreTitle">Khác</h2><button type="button" class="btn btn-ghost btn-icon" data-close-overlay="moreOverlay" aria-label="Đóng"><span data-icon="close"></span></button></div>
       <ul class="more-list">
-        <li><a class="side-link" href="#/khoan-vay" data-nav="loans"><span data-icon="loans"></span>Khoản vay</a></li>
+        <li><a class="side-link" href="#/tai-san" data-nav="assets"><span data-icon="assets"></span>Tài sản &amp; Nợ</a></li>
         <li><a class="side-link" href="#/lich" data-nav="plan"><span data-icon="calendar"></span>Lịch tài chính</a></li>
         <li><a class="side-link" href="#/ai-advisor" data-nav="ai"><span data-icon="advisor"></span>AI Advisor</a></li>
         <li><a class="side-link" href="#/bao-cao" data-nav="reports"><span data-icon="reports"></span>Báo cáo</a></li>
