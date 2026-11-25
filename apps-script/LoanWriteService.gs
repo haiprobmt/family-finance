@@ -29,7 +29,7 @@ function saveLoan(p){
       if(!(Number.isFinite(next.principal)&&next.principal>=0&&next.principal<=1e13))throw new Error('Dư nợ gốc không hợp lệ ('+key.month+').');
       if(!(Number.isFinite(next.rate)&&next.rate>=0&&next.rate<=1))throw new Error('Lãi suất phải từ 0 đến 100%/năm ('+key.month+').');
       if(!(Number.isFinite(next.interest)&&next.interest>=0&&next.interest<=1e12))throw new Error('Tiền phải trả không hợp lệ ('+key.month+').');
-      if(!(Number.isInteger(next.days)&&next.days>=1&&next.days<=31))throw new Error('Số ngày tính lãi phải từ 1 đến 31 ('+key.month+').');
+      if(!(Number.isInteger(next.days)&&next.days>=1&&next.days<=62))throw new Error('Số ngày tính lãi phải từ 1 đến 62 ('+key.month+').');
     }
     plan.push({op,key,next,base:c.base||null});
   }

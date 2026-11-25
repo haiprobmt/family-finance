@@ -444,7 +444,7 @@
         <label class="field"><span class="field-label" id="loanMonthLabel">Tháng</span><input id="loanMonth" type="month" min="2026-10" max="2060-12" required /></label>
         <label class="field"><span class="field-label">Dư nợ gốc đầu tháng (₫)</span><input id="loanPrincipal" inputmode="numeric" required /></label>
         <label class="field"><span class="field-label">Lãi suất (%/năm)</span><input id="loanRate" type="number" step="any" min="0" max="100" inputmode="decimal" required /></label>
-        <label class="field"><span class="field-label">Số ngày tính lãi</span><input id="loanDays" type="number" min="1" max="31" step="1" required /></label>
+        <label class="field"><span class="field-label">Số ngày tính lãi</span><input id="loanDays" type="number" min="1" max="62" step="1" required /></label>
         <label class="field" id="loanPaymentField"><span class="field-label">Tiền phải trả tháng (₫)</span><input id="loanPayment" inputmode="numeric" /><button type="button" class="btn btn-ghost btn-sm" id="loanCalc">Tính tiền lãi theo dư nợ</button></label>
         <fieldset class="field wide loan-repeat" id="loanRepeatBox">
           <label class="check"><input type="checkbox" id="loanRepeat" /> <span>Tạo lịch cho nhiều tháng liên tiếp</span></label>
