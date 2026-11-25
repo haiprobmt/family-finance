@@ -1,0 +1,8 @@
+# /etc/caddy/Caddyfile — HTTPS in front of Family Finance. Caddy gets and renews the certificate.
+# Replace the host name with a DNS name pointing at this VM (ports 80 and 443 open). Without a
+# domain, <public-ip-with-dashes>.sslip.io works, e.g. 203-0-113-7.sslip.io.
+family.example.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8080
+	header Strict-Transport-Security "max-age=31536000"
+}
