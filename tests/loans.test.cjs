@@ -54,6 +54,11 @@ test('loan_save: add, batch, edit with base, replay, conflict, delete — identi
   let r = await w.both([0, 1, 2].map(i => ({ op: 'upsert', row: row('Vietcombank', ['2027-01', '2027-02', '2027-03'][i], { principal: 100000000 - i * 2000000 }), base: null })));
   assert.equal(r.ok, true);
   assert.equal(r.loans.records.filter(x => x.bank === 'Vietcombank').length, 3);
+  // Bank periods can run longer than a month (e.g. 35 days from the 5th to the 8th of the next month).
+  r = await w.both([{ op: 'upsert', row: row('Vietcombank', '2027-04', { days: 35 }), base: null }]);
+  assert.equal(r.ok, true);
+  r = await w.both([{ op: 'delete', row: { bank: 'Vietcombank', month: '2027-04' }, base: row('Vietcombank', '2027-04', { days: 35 }) }]);
+  assert.equal(r.ok, true);
   // Replaying the same request is a no-op success.
   r = await w.both([{ op: 'upsert', row: row('Vietcombank', '2027-01'), base: null }]);
   assert.equal(r.ok, true);
@@ -93,6 +98,7 @@ test('loan_save: validation and rules', async () => {
     [[{ op: 'upsert', row: row('Techcombank', '2026-11'), base: null }], /Techcombank/],
     [[{ op: 'upsert', row: row('X', '2027-01', { rate: 1.5 }), base: null }], /Lãi suất/],
     [[{ op: 'upsert', row: row('X', '2027-01', { days: 0 }), base: null }], /Số ngày/],
+    [[{ op: 'upsert', row: row('X', '2027-01', { days: 63 }), base: null }], /Số ngày/],
     [[{ op: 'upsert', row: row('X', '2027-01', { principal: -1 }), base: null }], /Dư nợ/],
     [[{ op: 'upsert', row: row('X', '2027-01'), base: null }, { op: 'upsert', row: row('X', '2027-01'), base: null }], /Trùng/]
   ]) {

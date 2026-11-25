@@ -359,7 +359,7 @@ function fvLoanErrors(f) {
   if (f.bank === 'Techcombank' && f.month >= '2026-11') e.push('Techcombank chỉ theo dõi đến 10/2026');
   if (!(f.principal >= 0)) e.push('dư nợ');
   if (!(f.ratePct >= 0 && f.ratePct <= 100)) e.push('lãi suất');
-  if (!(f.days >= 1 && f.days <= 31)) e.push('số ngày');
+  if (!(f.days >= 1 && f.days <= 62)) e.push('số ngày (1–62)');
   return e;
 }
 async function fvSaveLoanChanges(changes, done) {
