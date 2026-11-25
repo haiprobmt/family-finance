@@ -11,6 +11,20 @@ assert.equal(ctx.localStorage.getItem('ffpages:connection'),null);
 assert.equal(JSON.parse(ctx.bridge.configure(url,'',true)).ok,true);
 assert(ctx.localStorage.getItem('ffpages:connection'));
 assert.equal(JSON.parse(ctx.bridge.configure('https://script.google.com/macros/s/OTHER/exec','')).ok,false);
+// Served by the family's own server: the same-origin /api endpoint is the default and only other valid URL.
+{const self=vm.createContext({URL,URLSearchParams,AbortController,setTimeout,clearTimeout,localStorage:storage(),sessionStorage:storage(),location:new URL('https://family.example/')});
+vm.runInContext(read('web-bridge.js')+';globalThis.bridge=FamilyNative',self);
+assert.equal(JSON.parse(self.bridge.getConfig()).endpoint,'https://family.example/api');
+assert.equal(JSON.parse(self.bridge.configure('https://evil.example/api','test-token-1234567890123456')).ok,false);
+assert.equal(JSON.parse(self.bridge.configure('','test-token-1234567890123456')).ok,true);
+assert.equal(JSON.parse(self.sessionStorage.getItem('ffpages:connection')).endpoint,'https://family.example/api');
+assert.equal(JSON.parse(self.bridge.configure(url,'test-token-1234567890123456')).ok,true);
+const plain=vm.createContext({URL,URLSearchParams,localStorage:storage(),sessionStorage:storage(),location:new URL('http://192.168.1.5:8080/')});
+vm.runInContext(read('web-bridge.js')+';globalThis.bridge=FamilyNative',plain);
+assert.equal(JSON.parse(plain.bridge.getConfig()).endpoint,'','no token over plain HTTP except localhost');
+const pages=vm.createContext({URL,URLSearchParams,localStorage:storage(),sessionStorage:storage(),location:new URL('https://haiprobmt.github.io/family-finance/')});
+vm.runInContext(read('web-bridge.js')+';globalThis.bridge=FamilyNative',pages);
+assert.equal(JSON.parse(pages.bridge.getConfig()).endpoint,'');}
 const html=read('index.html');assert(html.includes('manifest.webmanifest'));assert(!html.includes('family-photo'));
 const loans=read('loans-data.js');assert(loans.includes('records:[]'));assert(loans.includes('extraDebt:0'));
 for(const file of fs.readdirSync(docs)){assert(!/family-photo|\.apk$|\.p12$|password/.test(file));if(/\.(js|html|css)$/.test(file)){const s=read(file);assert(!/AKfy[a-zA-Z0-9_-]{20,}|sk-[a-zA-Z0-9]{20,}|lethuyan|hainguyendl93/.test(s),file);}}

@@ -3,6 +3,38 @@
 Public application code only. No family photos, transactions, loan records, keys,
 tokens, private spreadsheet URLs, APK binaries or signing keys are included.
 
+## Run on your own server (no Apps Script)
+
+`server/` is a small Node.js server (no dependencies) that serves the web app **and** the API from
+one HTTPS address on your VM. Data stays in the same Google Sheet: the server reads and writes it
+through the Google Sheets API, running the same backend code as before (`apps-script/` is now
+plain JavaScript executed by the server; nothing is deployed to Apps Script).
+
+One-time setup:
+
+1. **Google service account** (lets the server open the spreadsheet):
+   Google Cloud console → create/select a project → enable **Google Sheets API** →
+   IAM → Service accounts → Create → Keys → Add key → JSON. Open the spreadsheet → Share →
+   add the service account's e-mail (`…@….iam.gserviceaccount.com`) as **Editor**.
+2. **Install on the VM** (Debian/Ubuntu with systemd):
+   ```bash
+   ssh david-nguyen 'curl -fsSL https://raw.githubusercontent.com/haiprobmt/family-finance/main/deploy/install.sh | sudo bash'
+   ```
+   Then on the VM put the key at `/etc/family-finance/google-credentials.json` and fill in
+   `/etc/family-finance/env` (`SPREADSHEET_ID`, `FAMILY_ACCESS_TOKEN` — reuse the old one —
+   and optionally `DEEPSEEK_API_KEY`), and run `sudo /opt/family-finance/app/deploy/install.sh`
+   again. It checks Sheets access and starts the `family-finance` service on 127.0.0.1:8091.
+3. **HTTPS**: install Caddy and use `deploy/Caddyfile.example` with a DNS name for the VM.
+4. On each phone open `https://<your-domain>/`, enter the family token (the address is filled in),
+   and install it from the browser menu (Add to Home screen).
+
+Updates: `ssh david-nguyen 'sudo /opt/family-finance/app/deploy/install.sh'` pulls `main`, checks
+Sheets access and restarts. Logs: `journalctl -u family-finance -f`. Backend functions such as
+`migrationsDryRun` run with
+`sudo -u family-finance bash -c 'set -a; . /etc/family-finance/env; node /opt/family-finance/app/server/index.js --run migrationsDryRun'`.
+
+The Apps Script instructions below remain only for the old setup.
+
 ## Publish
 
 In **Settings → Pages → Build and deployment**, choose **Deploy from a branch**,

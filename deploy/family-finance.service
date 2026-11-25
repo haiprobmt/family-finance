@@ -1,0 +1,32 @@
+# Installed by deploy/install.sh (placeholders @...@ are filled in there).
+[Unit]
+Description=Family Finance (web app + API on Google Sheets)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+EnvironmentFile=@ETC@/env
+WorkingDirectory=@APP@
+ExecStart=@NODE@ @APP@/server/index.js
+Restart=on-failure
+RestartSec=3
+# Hardening: the app only reads its code and the files in @ETC@, and talks to Google over HTTPS.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

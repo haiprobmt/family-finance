@@ -1,8 +1,10 @@
 {
   "name": "family-finance",
   "private": true,
-  "description": "Chi Tiêu Gia Đình — PWA (docs/) and Google Apps Script backend (apps-script/). No runtime dependencies.",
+  "description": "Chi Tiêu Gia Đình — PWA (docs/), backend logic (apps-script/) and the Node server (server/) that runs it against Google Sheets. No runtime dependencies.",
+  "engines": { "node": ">=20" },
   "scripts": {
+    "start": "node server/index.js",
     "test": "node tests/web.cjs && node --test tests/*.test.cjs",
     "e2e": "node --test --test-concurrency=1 tests/e2e/*.e2e.cjs",
     "build:apps-script": "node tools/build-apps-script.cjs"
