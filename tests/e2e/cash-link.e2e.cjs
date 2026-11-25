@@ -26,6 +26,7 @@ test('a Tiền mặt asset is valued automatically from Tiết kiệm tích lũy
     const row = squash(await p.locator('#assetList tr', { hasText: 'Tiền mặt' }).first().innerText());
     assert.ok(row.includes(savings), row + ' should include ' + savings);
     assert.equal(await p.locator('#assetList tr', { hasText: 'Tiền mặt' }).locator('[data-action="value-asset"]').count(), 0, 'no manual valuation button');
+    await p.waitForFunction(() => { const c = JSON.parse(localStorage.getItem('ffpages:ext_cache_v1') || '{}').collections; return c && c.assets.pending === null && c.assets.values.some(a => a.name === 'Tiền mặt'); }, null, { timeout: 15000 });
     const stored = w.sheetRows('Assets').find(r => r[2] === 'Tiền mặt');
     assert.ok(stored, 'saved to the Assets sheet'); assert.equal(stored[1], 'cash'); assert.equal(stored[6], '', 'no hand-entered value stored');
     await go(a, 'reports');
