@@ -41,7 +41,7 @@
   function loanPosition(schedule, month, rates) {
     const s = D.loan.loanSummary(schedule, month, rates), l = D.loan.liabilityAt(schedule, month);
     return { tool: 'loan_position', period: { from: month, to: month }, kind: 'scheduled', coverage: { scheduleComplete: !s.missing, missingNote: s.missingNote || null }, provenance: 'Google Sheets · Loans + FinanceSettings (lịch vay dự kiến, không phải giao dịch thực tế)',
-      data: { month: D.money.monthLabel(month), scheduledTotal: s.total, incomplete: s.missing, extraMonthly: schedule.extraDebt || 0, banks: s.rows.map(D.loan.paymentBreakdown), outstandingPrincipal: l.total, outstandingKnown: l.knownTotal } };
+      data: { month: D.money.monthLabel(month), scheduledTotal: s.total, incomplete: s.missing, extraMonthly: D.loan.extraDebtAt(schedule, month), banks: s.rows.map(D.loan.paymentBreakdown), outstandingPrincipal: l.total, outstandingKnown: l.knownTotal } };
   }
   function repaymentSimulation(params) {
     const base = D.loan.simulateRepayment({ ...params, extraMonthly: 0, lumpSums: [] }), alt = D.loan.simulateRepayment(params);

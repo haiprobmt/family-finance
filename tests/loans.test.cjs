@@ -128,3 +128,24 @@ test('APK-era snapshot of loans is unchanged by the new rules (contract)', () =>
   const a = loadBackend(backendFiles(), { spreadsheet: ss, properties: { FAMILY_ACCESS_TOKEN: syn.TEST_TOKEN } }).post(scenario.auth({ action: 'snapshot' }));
   assert.deepEqual(plain(a.loans), plain(syn.loanSchedule()));
 });
+
+test('ExtraDebtUntil: the monthly extra repayment stops after its last month; absent = every month', async () => {
+  const base = syn.loanSchedule(), R = D.loan.normalizeRates(null);
+  const until = { ...base, extraDebt: 10000000, extraDebtUntil: '2026-12' };
+  const legacy = { ...base, extraDebt: 10000000 };
+  assert.equal(D.loan.loanSummary(until, '2026-12', R).total, D.loan.loanSummary(legacy, '2026-12', R).total, 'included in its last month');
+  assert.equal(D.loan.loanSummary(until, '2027-01', R).total, D.loan.loanSummary(legacy, '2027-01', R).total - 10000000, 'not after');
+  assert.equal(D.loan.extraDebtAt(legacy, '2040-01'), 10000000);
+  // Backends: read from FinanceSettings (text or a date cell), validated, identical on both.
+  for (const value of ["'2030-12", '2030-12-01']) {
+    const w = worlds();
+    for (const seed of [(n, r) => w.ss.seed(n, r), (n, r) => w.api.seed(n, r)]) seed('FinanceSettings', [['Key', 'Value'], ['ExtraDebtMonthly', 10000000], ['ExtraDebtUntil', value]]);
+    const p = scenario.auth({ action: 'snapshot' });
+    const a = w.gas.post(p), b = JSON.parse(await w.server.handle('POST', p));
+    assert.deepEqual(b.loans, a.loans);
+    assert.equal(a.loans.extraDebt, 10000000); assert.equal(a.loans.extraDebtUntil, '2030-12', value);
+  }
+  const bad = worlds();
+  bad.ss.seed('FinanceSettings', [['Key', 'Value'], ['ExtraDebtUntil', 'soon']]);
+  assert.match(bad.gas.post(scenario.auth({ action: 'snapshot' })).error, /ExtraDebtUntil/);
+});
