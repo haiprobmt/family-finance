@@ -124,6 +124,8 @@
     const expense = sum(valid.filter(r => r.type === 'Expense' && String(r.date) <= today));
     return { start, end, expenseEnd: today, income, expense, savings: end ? income - expense : null };
   }
+  // Accumulated savings counting only transactions dated on/before the cut-off (null = no income yet).
+  function savingsAt(rows, cutoff) { return accumulatedSavings(rows.filter(r => String(r.date) <= cutoff), cutoff).savings; }
   function dashboardData(rows, month, months = 6) {
     const count = Math.max(1, Math.min(12, Math.trunc(Number(months) || 1)));
     const [year, number] = month.split('-').map(Number);
@@ -144,7 +146,7 @@
     return rows.filter(r => (!month || inMonth(r, month)) && (!type || r.type === type) && (!category || r.category === category));
   }
 
-  D.cashflow = { monthTotals, categoryTotals, weeklySpending, accumulatedSavings, dashboardData, sourceRows };
+  D.cashflow = { monthTotals, categoryTotals, weeklySpending, accumulatedSavings, savingsAt, dashboardData, sourceRows };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
 // ---- loan.js ----
@@ -284,7 +286,7 @@
   const ASSET_TYPE_LABELS = { cash: 'Tiền mặt', bank: 'Tài khoản ngân hàng', 'real-estate': 'Bất động sản', vehicle: 'Phương tiện', investment: 'Đầu tư', other: 'Khác' };
   const ASSET_STATUSES = ['active', 'sold', 'closed'];
   const SOURCE_TYPES = ['estimate', 'statement', 'appraisal', 'market'];
-  const SOURCE_LABELS = { estimate: 'Ước tính', statement: 'Sao kê', appraisal: 'Thẩm định', market: 'Giá thị trường' };
+  const SOURCE_LABELS = { estimate: 'Ước tính', statement: 'Sao kê', appraisal: 'Thẩm định', market: 'Giá thị trường', linked: 'Tiết kiệm tích lũy' };
   // Debts entered by hand (owed to relatives, credit cards, instalments…). Bank loans with a
   // schedule stay in the Loans sheet; these are added on top of them.
   const DEBT_TYPES = ['personal', 'credit-card', 'installment', 'other'];
@@ -355,9 +357,19 @@
     candidates.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     return candidates[0] || null;
   }
-  function assetPosition(assets, valuations, cutoff) {
+  // "Tiền mặt" is linked to Tiết kiệm tích lũy (Báo cáo): the first cash asset (by id) is valued at the
+  // accumulated income − expense of the transactions dated up to the cut-off, never by hand. Any other
+  // cash asset keeps its own valuations (so the same money is never counted twice).
+  function linkedCashId(assets) { const cash = assets.filter(a => a.type === 'cash').map(a => a.id).sort(); return cash.length ? cash[0] : null; }
+  function assetPosition(assets, valuations, cutoff, transactions = null) {
+    const linked = transactions ? linkedCashId(assets) : null;
     const items = assets.filter(a => heldAt(a, cutoff)).map(a => {
-      const v = latestValuation(a, valuations, cutoff), share = a.ownershipShare;
+      const share = a.ownershipShare;
+      if (a.id === linked) {
+        const savings = D.cashflow.savingsAt(transactions, cutoff), v = savings === null ? null : { value: savings, date: cutoff, source: 'linked', id: a.id + ':linked' };
+        return { id: a.id, name: a.name, type: a.type, share, valuation: v, value: v ? Math.round(savings * share) : null, unknown: !v, linked: true };
+      }
+      const v = latestValuation(a, valuations, cutoff);
       return { id: a.id, name: a.name, type: a.type, share, valuation: v, value: v ? Math.round(v.value * share) : null, unknown: !v };
     });
     const unknown = items.filter(i => i.unknown);
@@ -388,19 +400,21 @@
     return { items: loans.items, loans, debts: other, complete, missing: loans.missing.concat(other.items.filter(i => i.unknown).map(i => i.name)), knownTotal: loans.knownTotal + other.knownTotal, total: complete ? loans.total + other.total : null };
   }
   // Net worth = assets - liabilities at the same cut-off. Null unless both sides are complete.
-  function netWorth({ assets = [], valuations = [], schedule, debts = [], cutoff }) {
-    const a = assetPosition(assets, valuations, cutoff);
+  function netWorth({ assets = [], valuations = [], schedule, debts = [], cutoff, transactions = null }) {
+    const a = assetPosition(assets, valuations, cutoff, transactions);
     const l = liabilitiesAt({ schedule, debts, cutoff });
     const gaps = [];
     if (!a.items.length) gaps.push('Chưa có tài sản nào được ghi nhận.');
-    if (a.unknownCount) gaps.push(a.unknownCount + ' tài sản chưa có định giá đến ngày ' + D.money.dateLabel(cutoff) + '.');
+    const linkedUnknown = a.items.filter(i => i.linked && i.unknown).length;
+    if (linkedUnknown) gaps.push('Tiền mặt lấy từ Tiết kiệm tích lũy: chưa có khoản thu nhập nào từ 26/08/2026 đến ngày ' + D.money.dateLabel(cutoff) + '.');
+    if (a.unknownCount - linkedUnknown) gaps.push((a.unknownCount - linkedUnknown) + ' tài sản chưa có định giá đến ngày ' + D.money.dateLabel(cutoff) + '.');
     if (!l.loans.complete) gaps.push('Thiếu dư nợ ' + l.loans.missing.join(', ') + ' tháng ' + D.money.monthLabel(cutoff.slice(0, 7)) + '.');
     if (l.debts.unknownCount) gaps.push(l.debts.unknownCount + ' khoản nợ chưa có số dư đến ngày ' + D.money.dateLabel(cutoff) + '.');
     const complete = !gaps.length;
     return { cutoff, assets: a, liabilities: l, complete, gaps, netWorth: complete ? a.total - l.total : null };
   }
 
-  D.netWorth = { ASSET_TYPES, ASSET_TYPE_LABELS, ASSET_STATUSES, SOURCE_TYPES, SOURCE_LABELS, DEBT_TYPES, DEBT_TYPE_LABELS, DEBT_STATUSES, validateAsset, validateValuation, validateDebt, heldAt, latestValuation, assetPosition, owedAt, debtPosition, liabilitiesAt, netWorth };
+  D.netWorth = { ASSET_TYPES, ASSET_TYPE_LABELS, ASSET_STATUSES, SOURCE_TYPES, SOURCE_LABELS, DEBT_TYPES, DEBT_TYPE_LABELS, DEBT_STATUSES, validateAsset, validateValuation, validateDebt, heldAt, latestValuation, linkedCashId, assetPosition, owedAt, debtPosition, liabilitiesAt, netWorth };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
 // ---- recurring.js ----

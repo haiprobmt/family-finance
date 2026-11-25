@@ -103,16 +103,16 @@ function renderAssets() {
   fvExtBanner();
   if (!FV.cutoff) FV.cutoff = fvToday();
   $('#netWorthCutoff').value = FV.cutoff;
-  const nw = FD.netWorth.netWorth({ assets: fvAssets(), valuations: fvValuations(), schedule: LOAN_SCHEDULE, debts: fvDebts(), cutoff: FV.cutoff });
+  const nw = FD.netWorth.netWorth({ assets: fvAssets(), valuations: fvValuations(), schedule: LOAN_SCHEDULE, debts: fvDebts(), cutoff: FV.cutoff, transactions });
   $('#netWorthSummary').innerHTML = `<div class="metric-grid metric-grid-3">${C.metricCard({ label: 'Tài sản (theo tỷ lệ sở hữu)', state: nw.assets.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.assets.total), helperHtml: nw.assets.unknownCount ? 'Đã biết: ' + money(nw.assets.knownTotal) : 'Định giá gần nhất' })}${C.metricCard({ label: 'Tổng nợ', state: nw.liabilities.total === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.liabilities.total), helperHtml: !nw.liabilities.complete && nw.liabilities.knownTotal ? 'Đã biết: ' + money(nw.liabilities.knownTotal) : 'Vay theo lịch tháng ' + fvMonthName(FV.cutoff.slice(0, 7)) + (nw.liabilities.debts.items.length ? ' + nợ khác' : '') })}${C.metricCard({ label: 'Giá trị ròng', emphasis: true, state: nw.netWorth === null ? 'unavailable' : 'ready', valueHtml: C.money(nw.netWorth, { semantic: nw.netWorth < 0 ? 'expense' : null }), helperHtml: 'Tài sản − nợ' })}</div>${nw.gaps.length ? '<ul class="gaps">' + nw.gaps.map(g => `<li>${escapeHtml(g)}</li>`).join('') + '</ul>' : ''}`;
   fvConflictBanner('#assetConflict', ['assets', 'valuations'], 'Tài sản hoặc định giá');
   const items = new Map(nw.assets.items.map(i => [i.id, i]));
   $('#assetList').innerHTML = C.dataTable({ caption: 'Danh sách tài sản', rows: fvAssets(), emptyHtml: C.emptyState({ title: 'Chưa có tài sản', text: 'Thêm tài khoản, tiền mặt, nhà, xe hoặc đầu tư để tính giá trị ròng.', iconName: 'assets', actionHtml: C.button({ label: 'Thêm tài sản', variant: 'primary', iconName: 'plus', attrs: { 'data-action': 'add-asset' } }) }), columns: [
     { key: 'name', label: 'Tài sản', render: a => `${escapeHtml(a.name)}<small>${escapeHtml(FD.netWorth.ASSET_TYPE_LABELS[a.type] || a.type)}${a.status !== 'active' ? ' · ' + (a.status === 'sold' ? 'đã bán' : 'đã đóng') : ''}</small>` },
     { key: 'share', label: 'Sở hữu', num: true, render: a => Math.round(a.ownershipShare * 1000) / 10 + '%' },
-    { key: 'value', label: 'Giá trị', num: true, render: a => { const p = items.get(a.id); return p ? (p.unknown ? '<span class="unknown">Chưa có định giá</span>' : C.money(p.value)) : '<span class="muted">Không nắm giữ tại ngày chốt</span>'; } },
+    { key: 'value', label: 'Giá trị', num: true, render: a => { const p = items.get(a.id); return p ? (p.unknown ? `<span class="unknown">${p.linked ? 'Chưa có thu nhập để tính' : 'Chưa có định giá'}</span>` : C.money(p.value, { semantic: p.value < 0 ? 'expense' : null })) + (p.linked ? '<small>Tự động từ Tiết kiệm tích lũy</small>' : '') : '<span class="muted">Không nắm giữ tại ngày chốt</span>'; } },
     { key: 'val', label: 'Định giá', render: a => { const v = items.get(a.id)?.valuation; return v ? `${escapeHtml(FD.money.dateLabel(v.date))}<small>${escapeHtml(FD.netWorth.SOURCE_LABELS[v.source] || v.source)}</small>` : '—'; } },
-    { key: 'actions', label: 'Thao tác', render: a => `<span class="row-actions">${fvSmallBtn('Định giá', { 'data-action': 'value-asset', 'data-id': a.id })}${fvSmallBtn('Sửa', { 'data-action': 'edit-asset', 'data-id': a.id }, 'ghost')}${C.button({ label: 'Xóa', variant: 'ghost', size: 'sm', cls: 'danger-text', attrs: { 'data-action': 'delete-asset', 'data-id': a.id, 'aria-label': 'Xóa ' + a.name } })}</span>` }
+    { key: 'actions', label: 'Thao tác', render: a => `<span class="row-actions">${a.id === FD.netWorth.linkedCashId(fvAssets()) ? '' : fvSmallBtn('Định giá', { 'data-action': 'value-asset', 'data-id': a.id })}${fvSmallBtn('Sửa', { 'data-action': 'edit-asset', 'data-id': a.id }, 'ghost')}${C.button({ label: 'Xóa', variant: 'ghost', size: 'sm', cls: 'danger-text', attrs: { 'data-action': 'delete-asset', 'data-id': a.id, 'aria-label': 'Xóa ' + a.name } })}</span>` }
   ] });
   fvConflictBanner('#debtConflict', ['debts'], 'Khoản nợ');
   $('#liabilitySummary').innerHTML = fvLiabilityMarkup(nw.liabilities);
@@ -266,13 +266,27 @@ function fvOpenAsset(id) {
   $('#assetType').value = a.type; $('#assetName').value = a.name; $('#assetValue').value = fvFmt(a.currentValue); $('#assetValuationDate').value = a.valuationDate || '';
   $('#assetShare').value = Math.round(a.ownershipShare * 1000) / 10; $('#assetAcqDate').value = a.acquisitionDate || ''; $('#assetAcqValue').value = fvFmt(a.acquisitionValue);
   $('#assetStatus').value = a.status || 'active'; $('#assetDisposal').value = a.disposalDate || ''; $('#assetNotes').value = a.notes || '';
+  fvAssetTypeChanged();
   openOverlay('#assetOverlay'); $('#assetName').focus();
 }
+// Would this asset (being added/edited) be the cash asset linked to Tiết kiệm tích lũy?
+function fvIsLinkedCash(type, id) {
+  if (type !== 'cash') return false;
+  const others = fvAssets().filter(x => x.id !== id && x.type === 'cash');
+  return !others.length || FD.netWorth.linkedCashId(fvAssets().filter(x => x.id !== id).concat({ id: id || 'zzzz-new', type })) === (id || 'zzzz-new');
+}
+function fvAssetTypeChanged() {
+  const linked = fvIsLinkedCash($('#assetType').value, FV.editingAssetId);
+  $('#assetValueField').hidden = linked; $('#assetValuationDateField').hidden = linked; $('#assetLinkedHelp').hidden = !linked;
+  if (linked) $('#assetLinkedHelp').innerHTML = 'Giá trị lấy <b>tự động từ Tiết kiệm tích lũy</b> (Báo cáo): tổng thu nhập − tổng chi tiêu từ 26/08/2026 đến ngày chốt. Không cần định giá tay.';
+}
+$('#assetType').addEventListener('change', fvAssetTypeChanged);
 $('#addAssetBtn').onclick = () => fvOpenAsset(null);
 $('#assetForm').addEventListener('submit', e => {
   e.preventDefault();
   const num = s => ($(s).value.trim() === '' ? '' : parseDigits($(s).value));
   const asset = { id: FV.editingAssetId || fvUid('a'), type: $('#assetType').value, name: $('#assetName').value.trim(), currency: 'VND', acquisitionDate: $('#assetAcqDate').value, acquisitionValue: num('#assetAcqValue'), currentValue: num('#assetValue'), valuationDate: $('#assetValuationDate').value, ownershipShare: Math.round(Number($('#assetShare').value) * 10) / 1000, notes: $('#assetNotes').value.trim(), status: $('#assetStatus').value, disposalDate: $('#assetDisposal').value };
+  if (fvIsLinkedCash(asset.type, FV.editingAssetId)) { asset.currentValue = ''; asset.valuationDate = ''; } // value comes from Tiết kiệm tích lũy
   if (asset.currentValue === '') asset.valuationDate = ''; // no value → no valuation date; history lives in AssetValuations
   const errors = FD.netWorth.validateAsset(asset);
   if (errors.length) return showToast('Kiểm tra lại: ' + errors.join(', '));
