@@ -21,6 +21,7 @@ ETC="/etc/family-finance"
 SERVICE="family-finance"
 USER_NAME="family-finance"
 NODE_MAJOR=22
+ARGS=("$@")
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -58,6 +59,7 @@ else
   mkdir -p "$BASE/node" && tar -xJf "$TMP/$TARBALL" -C "$BASE/node" --strip-components=1
   NODE_BIN="$BASE/node/bin/node"
 fi
+export FF_INSTALL_UPDATED="${FF_INSTALL_UPDATED:-}"
 echo "Node: $NODE_BIN $("$NODE_BIN" -v)"
 
 id "$USER_NAME" >/dev/null 2>&1 || { log "Creating system user $USER_NAME"; useradd --system --no-create-home --shell /usr/sbin/nologin "$USER_NAME"; }
@@ -68,6 +70,8 @@ if [ ! -d "$APP/.git" ]; then git clone --quiet "$REPO" "$APP"; fi
 git -C "$APP" fetch --quiet origin "$BRANCH"
 git -C "$APP" checkout --quiet -B "$BRANCH" FETCH_HEAD
 git -C "$APP" reset --quiet --hard FETCH_HEAD
+# The checkout may have just replaced this script; continue with the updated copy (once).
+if [ -z "${FF_INSTALL_UPDATED:-}" ]; then FF_INSTALL_UPDATED=1 exec bash "$APP/deploy/install.sh" "${ARGS[@]}"; fi
 BUILD="$(git -C "$APP" rev-parse --short=12 HEAD)"
 echo "$BUILD" > "$APP/BUILD"
 echo "Build: $BUILD ($(git -C "$APP" log -1 --format=%s))"
