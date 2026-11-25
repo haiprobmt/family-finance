@@ -144,6 +144,7 @@ async function main(argv) {
   }
   if (argv[0] === '--run') { console.log(await backend.runFunction(argv[1])); return; }
   const server = createApp({ backend, properties: cfg.properties, trustProxy: cfg.trustProxy });
+  server.on('error', e => { console.error(e.code === 'EADDRINUSE' ? 'Port ' + cfg.port + ' on ' + cfg.host + ' is already used by another program. Set another PORT in /etc/family-finance/env.' : 'Server error: ' + e.message); process.exit(1); });
   server.listen(cfg.port, cfg.host, () => console.log('Family Finance (build ' + buildId() + ') on http://' + cfg.host + ':' + cfg.port + ' · Sheets via ' + sheets.describe()));
   const stop = () => server.close(() => process.exit(0));
   process.on('SIGTERM', stop); process.on('SIGINT', stop);

@@ -100,12 +100,15 @@ runuser -u "$USER_NAME" -- bash -c 'set -a; . "$1"; set +a; exec "$2" "$3" --che
 log "Restarting $SERVICE"
 systemctl restart "$SERVICE"
 PORT="${PORT:-8080}"
-for _ in $(seq 1 20); do
+for _ in $(seq 1 40); do
   if curl -fsS "http://127.0.0.1:$PORT/api?build=1" 2>/dev/null | grep -q "\"build\":\"$BUILD\""; then
     echo "Family Finance build $BUILD is running on 127.0.0.1:$PORT."
     exit 0
   fi
   sleep 0.5
 done
-echo "The service did not answer with build $BUILD. Logs: journalctl -u $SERVICE -n 50" >&2
+echo "The service did not answer with build $BUILD on 127.0.0.1:$PORT." >&2
+echo "--- service status ---" >&2; systemctl status "$SERVICE" --no-pager -n 0 >&2 || true
+echo "--- recent logs ---" >&2; journalctl -u "$SERVICE" -n 30 --no-pager >&2 || true
+echo "--- programs listening on port $PORT ---" >&2; (ss -ltnp 2>/dev/null | grep ":$PORT " >&2) || echo "(none)" >&2
 exit 1
